@@ -1,29 +1,270 @@
-import { Head } from '@inertiajs/react';
-import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
+import { Head, Link } from '@inertiajs/react';
+import { AlertTriangle, CheckCircle2, Clock3, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 
-export default function Dashboard() {
+type DashboardProps = {
+    todayRun: any | null;
+    latestSummary: { summary_text: string } | null;
+};
+
+export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
+    const submittedResponses = (todayRun?.responses ?? []).filter(
+        (response: any) => response.status === 'submitted',
+    );
+    const responses = todayRun?.responses ?? [];
+    const members = responses
+        .map((response: any) => response.user)
+        .filter(Boolean);
+    const pending = responses
+        .filter((response: any) => response.status === 'pending')
+        .map((response: any) => response.user)
+        .filter(Boolean);
+    const pendingResponses = responses.filter(
+        (response: any) => response.status === 'pending',
+    );
+    const blockers = submittedResponses.flatMap((response: any) =>
+        (response.answers ?? [])
+            .filter((answer: any) =>
+                String(answer.question?.question_key ?? '')
+                    .toLowerCase()
+                    .includes('blocker'),
+            )
+            .filter((answer: any) => answer.answer_text)
+            .map((answer: any) => ({
+                member: response.user?.name,
+                text: answer.answer_text,
+            })),
+    );
+    const completion =
+        members.length > 0
+            ? Math.round((submittedResponses.length / members.length) * 100)
+            : 0;
+
     return (
         <>
             <Head title="Dashboard" />
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+            <div className="dp-page">
+                <div className="dp-page-header">
+                    <div>
+                        <div className="dp-kicker">Daily pulse</div>
+                        <h1 className="dp-title">Standup command center</h1>
+                        <p className="dp-subtitle">
+                            Track today’s answers, pending members, and blockers
+                            before the daily summary goes to Slack.
+                        </p>
                     </div>
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                    </div>
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                    </div>
+                    {todayRun && (
+                        <Button asChild>
+                            <Link href={`/standups/${todayRun.id}`}>
+                                <MessageSquare />
+                                Open run
+                            </Link>
+                        </Button>
+                    )}
                 </div>
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border">
-                    <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                </div>
+
+                {todayRun ? (
+                    <>
+                        <div className="grid gap-4 md:grid-cols-4">
+                            <Metric
+                                icon={<CheckCircle2 className="size-4" />}
+                                label="Completion"
+                                value={`${submittedResponses.length}/${members.length}`}
+                                detail={`${completion}% answered`}
+                            />
+                            <Metric
+                                icon={<Clock3 className="size-4" />}
+                                label="Pending"
+                                value={String(pendingResponses.length)}
+                                detail="Waiting for updates"
+                            />
+                            <Metric
+                                icon={<AlertTriangle className="size-4" />}
+                                label="Blockers"
+                                value={String(blockers.length)}
+                                detail="Needs attention"
+                            />
+                            <Metric
+                                icon={<MessageSquare className="size-4" />}
+                                label="Status"
+                                value={todayRun.status}
+                                detail={todayRun.workspace?.name}
+                            />
+                        </div>
+
+                        <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+                            <div className="dp-panel">
+                                <div className="dp-panel-header">
+                                    <div>
+                                        <h2 className="font-semibold">
+                                            Submitted answers
+                                        </h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            Grouped by developer for quick review.
+                                        </p>
+                                    </div>
+                                    <Badge>{todayRun.template?.name}</Badge>
+                                </div>
+                                <div>
+                                    {submittedResponses.length ? (
+                                        submittedResponses.map((response: any) => (
+                                            <div
+                                                key={response.id}
+                                                className="dp-table-row grid-cols-[180px_1fr]"
+                                            >
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {response.user?.name}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        Submitted
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {response.answers?.map(
+                                                        (answer: any) => (
+                                                            <div key={answer.id}>
+                                                                <div className="text-xs font-semibold text-muted-foreground">
+                                                                    {
+                                                                        answer
+                                                                            .question
+                                                                            ?.question_text
+                                                                    }
+                                                                </div>
+                                                                <div className="text-sm">
+                                                                    {answer.answer_text ||
+                                                                        '-'}
+                                                                </div>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <EmptyPanel text="No one has submitted yet." />
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-5">
+                                <SidePanel title="Pending members">
+                                    {pending.length ? (
+                                        pending.map((member: any) => (
+                                            <div
+                                                key={member.id}
+                                                className="flex items-center justify-between border-b py-2 last:border-0"
+                                            >
+                                                <span>{member.name}</span>
+                                                <Badge variant="secondary">
+                                                    Pending
+                                                </Badge>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            Everyone has responded.
+                                        </p>
+                                    )}
+                                </SidePanel>
+                                <SidePanel title="Blockers">
+                                    {blockers.length ? (
+                                        blockers.map(
+                                            (blocker: any, index: number) => (
+                                                <div
+                                                    key={`${blocker.member}-${index}`}
+                                                    className="rounded-md border border-destructive/25 bg-destructive/5 p-3"
+                                                >
+                                                    <div className="font-medium">
+                                                        {blocker.member}
+                                                    </div>
+                                                    <p className="text-sm">
+                                                        {blocker.text}
+                                                    </p>
+                                                </div>
+                                            ),
+                                        )
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            No blockers reported.
+                                        </p>
+                                    )}
+                                </SidePanel>
+                                {latestSummary && (
+                                    <SidePanel title="Latest summary">
+                                        <pre className="whitespace-pre-wrap text-sm">
+                                            {latestSummary.summary_text}
+                                        </pre>
+                                    </SidePanel>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="dp-panel dp-signal">
+                        <div className="dp-panel-body">
+                            <h2 className="font-semibold">
+                                No standup run today
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Create a schedule or generate today’s run to
+                                start collecting updates.
+                            </p>
+                            <Button asChild className="mt-4">
+                                <Link href="/schedules">Manage schedules</Link>
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );
+}
+
+function Metric({
+    icon,
+    label,
+    value,
+    detail,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+    detail: string;
+}) {
+    return (
+        <div className="dp-panel p-4">
+            <div className="mb-3 flex items-center justify-between text-muted-foreground">
+                <span className="text-xs font-semibold tracking-[0.16em] uppercase">
+                    {label}
+                </span>
+                {icon}
+            </div>
+            <div className="text-2xl font-semibold">{value}</div>
+            <div className="text-sm text-muted-foreground">{detail}</div>
+        </div>
+    );
+}
+
+function SidePanel({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="dp-panel">
+            <div className="border-b px-4 py-3 font-semibold">{title}</div>
+            <div className="space-y-3 p-4">{children}</div>
+        </div>
+    );
+}
+
+function EmptyPanel({ text }: { text: string }) {
+    return <div className="p-5 text-sm text-muted-foreground">{text}</div>;
 }
 
 Dashboard.layout = {

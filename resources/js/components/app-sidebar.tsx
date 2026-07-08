@@ -1,7 +1,15 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    BookOpen,
+    BriefcaseBusiness,
+    CalendarClock,
+    LayoutGrid,
+    MessageSquare,
+    Plug,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
+import { AppContextSwitcher } from '@/components/app-context-switcher';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -22,18 +30,40 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
-];
-
-const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        title: 'Standups',
+        href: '/standups',
+        icon: MessageSquare,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
+        title: 'Templates',
+        href: '/templates',
         icon: BookOpen,
+    },
+    {
+        title: 'Schedules',
+        href: '/schedules',
+        icon: CalendarClock,
+    },
+    {
+        title: 'Workspaces',
+        href: '/workspaces',
+        icon: BriefcaseBusiness,
+    },
+    {
+        title: 'Team Members',
+        href: '/team-members',
+        icon: Users,
+    },
+    {
+        title: 'Slack',
+        href: '/integrations/slack',
+        icon: Plug,
+    },
+    {
+        title: 'Discord',
+        href: '/integrations/discord',
+        icon: Plug,
     },
 ];
 
@@ -50,6 +80,7 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                <AppContextSwitcher />
             </SidebarHeader>
 
             <SidebarContent>
@@ -57,7 +88,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

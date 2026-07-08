@@ -26,6 +26,16 @@ const sidebarNavItems: NavItem[] = [
         href: editAppearance(),
         icon: null,
     },
+    {
+        title: 'Organization',
+        href: '/settings/organization',
+        icon: null,
+    },
+    {
+        title: 'Workspace',
+        href: '/settings/workspace',
+        icon: null,
+    },
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {

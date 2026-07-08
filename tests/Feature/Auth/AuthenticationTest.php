@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
 
@@ -17,6 +18,56 @@ class AuthenticationTest extends TestCase
         $response = $this->get(route('login'));
 
         $response->assertOk();
+    }
+
+    public function test_login_screen_shows_last_five_created_users()
+    {
+        $oldest = User::factory()->create([
+            'name' => 'Oldest User',
+            'email' => 'oldest@example.com',
+            'created_at' => now()->subMinutes(6),
+        ]);
+
+        $users = collect(range(1, 5))
+            ->map(fn (int $index) => User::factory()->create([
+                'name' => "Recent User {$index}",
+                'email' => "recent{$index}@example.com",
+                'created_at' => now()->subMinutes(6 - $index),
+            ]));
+
+        $response = $this->get(route('login'));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('auth/login')
+            ->has('recentLoginUsers', 5)
+            ->where('recentLoginUsers.0.email', $users->last()->email)
+            ->where('recentLoginUsers.4.email', $users->first()->email)
+            ->missing('recentLoginUsers.5')
+        );
+
+        $this->assertNotContains(
+            $oldest->email,
+            collect($response->viewData('page')['props']['recentLoginUsers'])->pluck('email'),
+        );
+    }
+
+    public function test_non_local_login_screen_shows_last_five_created_users()
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+
+        $users = collect(range(1, 5))
+            ->map(fn (int $index) => User::factory()->create([
+                'email' => "production-user{$index}@example.com",
+                'created_at' => now()->subMinutes(5 - $index),
+            ]));
+
+        $response = $this->get(route('login'));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('auth/login')
+            ->has('recentLoginUsers', 5)
+            ->where('recentLoginUsers.0.email', $users->last()->email)
+        );
     }
 
     public function test_users_can_authenticate_using_the_login_screen()
