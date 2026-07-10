@@ -13,15 +13,24 @@ class OrganizationSettingsController extends Controller
 {
     public function edit(Request $request, CurrentOrganization $currentOrganization): Response
     {
+        $organization = $currentOrganization->fromRequest($request);
+        abort_unless(
+            $organization && $currentOrganization->canManageOrganization($organization, $request->user()),
+            403,
+        );
+
         return Inertia::render('settings/organization', [
-            'organization' => $currentOrganization->fromRequest($request),
+            'organization' => $organization,
         ]);
     }
 
     public function update(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_unless(
+            $organization && $currentOrganization->canManageOrganization($organization, $request->user()),
+            403,
+        );
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],

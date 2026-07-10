@@ -1,9 +1,18 @@
 import { Head, Link } from '@inertiajs/react';
 import { BookOpen, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+    IndexDataControls,
+    IndexDataState,
+    IndexFilterSelect,
+    IndexPagination,
+} from '@/components/index-data-controls';
+import { useIndexData } from '@/hooks/use-index-data';
 
 type Props = {
-    templates: Array<{
+    indexEndpoint: string;
+    workspaces: Array<{ id: number; name: string }>;
+    templates?: Array<{
         id: number;
         name: string;
         description?: string | null;
@@ -15,9 +24,17 @@ type Props = {
 };
 
 export default function TemplatesIndex({
-    templates,
+    indexEndpoint,
+    workspaces,
     canManageTemplates,
 }: Props) {
+    const { page, query, loading, error, updateQuery, setFilter } =
+        useIndexData<NonNullable<Props['templates']>[number]>(indexEndpoint, {
+            sort: 'created_at',
+            direction: 'desc',
+        });
+    const templates = page.data;
+
     return (
         <>
             <Head title="Templates" />
@@ -56,9 +73,53 @@ export default function TemplatesIndex({
                             </p>
                         </div>
                         <div className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">
-                            {templates.length} total
+                            {page.total} total
                         </div>
                     </div>
+
+                    <IndexDataControls
+                        search={query.search}
+                        onSearchChange={(search) => updateQuery({ search })}
+                        sort={query.sort}
+                        direction={query.direction}
+                        onSortChange={(sort, direction) =>
+                            updateQuery({ sort, direction })
+                        }
+                        sortOptions={[
+                            {
+                                label: 'Newest first',
+                                value: 'created_at',
+                                direction: 'desc',
+                            },
+                            { label: 'Name A-Z', value: 'name' },
+                            {
+                                label: 'Most questions',
+                                value: 'questions_count',
+                                direction: 'desc',
+                            },
+                        ]}
+                    >
+                        <IndexFilterSelect
+                            label="All workspaces"
+                            value={query.filters.workspace_id ?? ''}
+                            onChange={(value) =>
+                                setFilter('workspace_id', value)
+                            }
+                            options={workspaces.map((workspace) => ({
+                                label: workspace.name,
+                                value: workspace.id,
+                            }))}
+                        />
+                        <IndexFilterSelect
+                            label="Any status"
+                            value={query.filters.active ?? ''}
+                            onChange={(value) => setFilter('active', value)}
+                            options={[
+                                { label: 'Active', value: '1' },
+                                { label: 'Inactive', value: '0' },
+                            ]}
+                        />
+                    </IndexDataControls>
 
                     <div>
                         {templates.map((template) => {
@@ -102,7 +163,24 @@ export default function TemplatesIndex({
                                 </div>
                             );
                         })}
+                        {!templates.length && (
+                            <IndexDataState
+                                loading={loading}
+                                error={error}
+                                empty="No templates match these filters."
+                            />
+                        )}
                     </div>
+                    <IndexPagination
+                        currentPage={page.current_page}
+                        lastPage={page.last_page}
+                        from={page.from}
+                        to={page.to}
+                        total={page.total}
+                        perPage={query.perPage}
+                        onPageChange={(page) => updateQuery({ page })}
+                        onPerPageChange={(perPage) => updateQuery({ perPage })}
+                    />
                 </div>
             </div>
         </>

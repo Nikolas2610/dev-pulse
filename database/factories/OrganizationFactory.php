@@ -16,6 +16,8 @@ class OrganizationFactory extends Factory
             'slug' => Str::slug($name).'-'.Str::lower(Str::random(6)),
             'timezone' => 'Asia/Nicosia',
             'is_active' => true,
+            'onboarding_step' => 'complete',
+            'onboarding_completed_at' => now(),
         ];
     }
 }

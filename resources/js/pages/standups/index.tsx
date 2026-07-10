@@ -2,10 +2,29 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowRight, CalendarDays, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { StandupStatusBadge } from '@/components/standup-status-badge';
 import { AppDateFormatter } from '@/lib/date-format';
+import {
+    IndexDataControls,
+    IndexDataState,
+    IndexFilterSelect,
+    IndexPagination,
+} from '@/components/index-data-controls';
+import { useIndexData } from '@/hooks/use-index-data';
 
-export default function StandupsIndex({ runs }: { runs: any[] }) {
+export default function StandupsIndex({
+    indexEndpoint,
+}: {
+    indexEndpoint: string;
+}) {
+    const { page, query, loading, error, updateQuery, setFilter } =
+        useIndexData<any>(indexEndpoint, {
+            sort: 'run_date',
+            direction: 'desc',
+        });
+    const runs = page.data;
+
     return (
         <>
             <Head title="Standups" />
@@ -29,8 +48,51 @@ export default function StandupsIndex({ runs }: { runs: any[] }) {
                                 Newest run dates appear first.
                             </p>
                         </div>
-                        <Badge variant="secondary">{runs.length} runs</Badge>
+                        <Badge variant="secondary">{page.total} runs</Badge>
                     </div>
+
+                    <IndexDataControls
+                        search={query.search}
+                        onSearchChange={(search) => updateQuery({ search })}
+                        sort={query.sort}
+                        direction={query.direction}
+                        onSortChange={(sort, direction) =>
+                            updateQuery({ sort, direction })
+                        }
+                        sortOptions={[
+                            {
+                                label: 'Newest run',
+                                value: 'run_date',
+                                direction: 'desc',
+                            },
+                            {
+                                label: 'Oldest run',
+                                value: 'run_date',
+                                direction: 'asc',
+                            },
+                            { label: 'Template A-Z', value: 'template' },
+                            { label: 'Status A-Z', value: 'status' },
+                        ]}
+                    >
+                        <IndexFilterSelect
+                            label="All statuses"
+                            value={query.filters.status ?? ''}
+                            onChange={(value) => setFilter('status', value)}
+                            options={[
+                                { label: 'Scheduled', value: 'scheduled' },
+                                { label: 'Active', value: 'active' },
+                                { label: 'Completed', value: 'completed' },
+                                { label: 'Cancelled', value: 'cancelled' },
+                            ]}
+                        />
+                        <DatePicker
+                            value={query.filters.date ?? ''}
+                            onValueChange={(value) => setFilter('date', value)}
+                            placeholder="Any run date"
+                            aria-label="Filter by run date"
+                            className="lg:w-44"
+                        />
+                    </IndexDataControls>
 
                     {runs.length ? (
                         runs.map((run) => (
@@ -71,10 +133,22 @@ export default function StandupsIndex({ runs }: { runs: any[] }) {
                             </div>
                         ))
                     ) : (
-                        <div className="p-5 text-sm text-muted-foreground">
-                            No standup runs have been generated yet.
-                        </div>
+                        <IndexDataState
+                            loading={loading}
+                            error={error}
+                            empty="No standup runs match these filters."
+                        />
                     )}
+                    <IndexPagination
+                        currentPage={page.current_page}
+                        lastPage={page.last_page}
+                        from={page.from}
+                        to={page.to}
+                        total={page.total}
+                        perPage={query.perPage}
+                        onPageChange={(page) => updateQuery({ page })}
+                        onPerPageChange={(perPage) => updateQuery({ perPage })}
+                    />
                 </div>
             </div>
         </>

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'timezone', 'is_active'])]
+#[Fillable(['name', 'slug', 'timezone', 'is_active', 'onboarding_step', 'onboarding_completed_at'])]
 class Organization extends Model
 {
     /** @use HasFactory<OrganizationFactory> */
@@ -17,7 +17,10 @@ class Organization extends Model
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return [
+            'is_active' => 'boolean',
+            'onboarding_completed_at' => 'datetime',
+        ];
     }
 
     public function users(): BelongsToMany

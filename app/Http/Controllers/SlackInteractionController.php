@@ -12,6 +12,7 @@ use App\Services\ActivityEventService;
 use App\Services\SlackIntegrationService;
 use App\Services\StandupQuestionFlowService;
 use App\Services\StandupRunCompletionService;
+use App\Services\StandupSubmissionFinalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SlackInteractionController extends Controller
 {
+    public function __construct(private readonly StandupSubmissionFinalizer $submissionFinalizer) {}
+
     public function __invoke(
         Request $request,
         SlackIntegrationService $slack,
@@ -123,6 +126,7 @@ class SlackInteractionController extends Controller
             );
 
             $completion->completeIfAllResponsesSubmitted($run);
+            $this->submissionFinalizer->handle($response);
 
             return response()->json(['response_action' => 'clear']);
         }
@@ -329,6 +333,7 @@ class SlackInteractionController extends Controller
         );
 
         $completion->completeIfAllResponsesSubmitted($run);
+        $this->submissionFinalizer->handle($response);
 
         Log::info('Slack standup message flow completed', [
             'standup_run_id' => $run->id,
@@ -476,6 +481,7 @@ class SlackInteractionController extends Controller
         );
 
         $completion->completeIfAllResponsesSubmitted($response->run);
+        $this->submissionFinalizer->handle($response);
 
         $slack->postMessage(
             $integration,

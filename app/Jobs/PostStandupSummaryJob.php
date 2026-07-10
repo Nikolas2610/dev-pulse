@@ -6,6 +6,7 @@ use App\Models\StandupRun;
 use App\Services\StandupSummaryService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 
 class PostStandupSummaryJob implements ShouldQueue
 {
@@ -15,8 +16,14 @@ class PostStandupSummaryJob implements ShouldQueue
 
     public function handle(StandupSummaryService $summaries): void
     {
-        $run = StandupRun::findOrFail($this->standupRunId);
+        Cache::lock('standup-summary:'.$this->standupRunId, 300)->block(5, function () use ($summaries): void {
+            $run = StandupRun::findOrFail($this->standupRunId);
 
-        $summaries->postSummary($run);
+            if ($run->summary_posted_at || ($run->summary_due_at && $run->summary_due_at->isFuture())) {
+                return;
+            }
+
+            $summaries->postSummary($run);
+        });
     }
 }

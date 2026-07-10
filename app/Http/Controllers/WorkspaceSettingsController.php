@@ -17,6 +17,10 @@ class WorkspaceSettingsController extends Controller
         $workspace = $organization && $request->user()
             ? $currentOrganization->currentWorkspaceForUser($organization, $request->user())
             : null;
+        abort_unless(
+            $organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()),
+            403,
+        );
 
         return Inertia::render('settings/workspace', [
             'workspace' => $workspace,
@@ -30,6 +34,10 @@ class WorkspaceSettingsController extends Controller
             ? $currentOrganization->currentWorkspaceForUser($organization, $request->user())
             : null;
         abort_unless($workspace, 404);
+        abort_unless(
+            $organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()),
+            403,
+        );
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],

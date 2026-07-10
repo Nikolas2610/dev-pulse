@@ -3,19 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Integration;
-use App\Models\IntegrationUser;
+use App\Models\Organization;
 use App\Models\StandupRun;
 use App\Models\StandupSchedule;
 use App\Models\StandupTemplate;
 use App\Services\CurrentOrganization;
 use App\Services\StandupMessageService;
+use App\Services\StandupReminderMessageService;
 use App\Services\StandupSummaryService;
+use App\Services\StandupTimingService;
 use App\Support\TimezoneRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -26,31 +29,41 @@ class ScheduleController extends Controller
     public function index(Request $request, CurrentOrganization $currentOrganization): Response
     {
         $organization = $currentOrganization->fromRequest($request);
+        $workspaces = $organization
+            ? $currentOrganization->manageableWorkspacesForUser($organization, $request->user())
+            : collect();
+        $workspaceIds = $workspaces->pluck('id');
+        $isOrganizationManager = $organization
+            && $currentOrganization->canManageOrganization($organization, $request->user());
 
         return Inertia::render('schedules/index', [
-            'schedules' => StandupSchedule::query()
-                ->with('workspace', 'template', 'targetIntegration', 'promptChannel', 'targetChannel')
-                ->withCount('participants')
-                ->where('organization_id', $organization?->id)
-                ->latest()
-                ->get(),
-            'workspaces' => $organization?->workspaces()->orderBy('name')->get(['id', 'name']) ?? [],
-            'templates' => StandupTemplate::where('organization_id', $organization?->id)->orderBy('name')->get(['id', 'name']),
+            'indexEndpoint' => route('api.schedules.index'),
+            'workspaces' => $workspaces->map->only(['id', 'name'])->values(),
+            'templates' => StandupTemplate::where('organization_id', $organization?->id)
+                ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspace_id', $workspaceIds))
+                ->orderBy('name')->get(['id', 'name']),
             'integrations' => Integration::with('channels')
                 ->where('organization_id', $organization?->id)
+                ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspace_id', $workspaceIds))
                 ->whereIn('provider', ['slack', 'discord'])
                 ->orderBy('provider')
                 ->orderBy('name')
                 ->get(),
             'members' => $organization?->users()
                 ->with([
-                    'workspaces' => fn ($query) => $query->wherePivot('is_active', true),
+                    'workspaces' => fn ($query) => $query
+                        ->wherePivot('is_active', true)
+                        ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspaces.id', $workspaceIds)),
                     'integrationUsers' => fn ($query) => $query->where('provider', 'slack')->select('id', 'integration_id', 'user_id', 'provider'),
                 ])
+                ->when(! $isOrganizationManager, fn ($query) => $query->whereHas(
+                    'workspaces',
+                    fn ($query) => $query->whereIn('workspaces.id', $workspaceIds)->where('workspace_user.is_active', true),
+                ))
                 ->orderBy('name')
                 ->get(['users.id', 'name', 'email']) ?? [],
             'canManageSchedules' => $organization
-                ? $currentOrganization->canManageOrganization($organization, $request->user())
+                ? $currentOrganization->canManageCurrentWorkspace($organization, $request->user())
                 : false,
         ]);
     }
@@ -59,7 +72,7 @@ class ScheduleController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization, 403);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $validated = $request->validate([
             'workspace_id' => ['required', 'integer'],
@@ -73,13 +86,19 @@ class ScheduleController extends Controller
             'delivery_method' => ['required', 'string', 'in:email,slack_dm,slack_channel,discord_channel'],
             'participant_user_ids' => ['nullable', 'array'],
             'participant_user_ids.*' => ['integer'],
-            'reminder_minutes_after' => ['required', 'integer', 'min:0'],
-            'summary_minutes_after' => ['required', 'integer', 'min:0'],
+            'end_time_of_day' => ['nullable', 'date_format:H:i'],
+            'reminder_minutes_before_end' => ['nullable', 'array', 'min:1'],
+            'reminder_minutes_before_end.*' => ['integer', 'min:1'],
+            'reminder_message_template' => ['nullable', 'string', 'max:1000'],
+            'reminder_minutes_after' => ['nullable', 'integer', 'min:0'],
+            'summary_minutes_after' => ['nullable', 'integer', 'min:1', 'max:1439'],
             'target_integration_id' => ['nullable', 'integer'],
             'prompt_channel_id' => ['nullable', 'integer'],
             'target_channel_id' => ['nullable', 'integer'],
             'is_active' => ['boolean'],
         ]);
+        $validated = $this->normalizeAndValidateReminderSettings($validated);
+        $this->authorizeScheduleSelection($validated, $organization, $request, $currentOrganization);
 
         if ($validated['recipient_mode'] === 'selected_members' && empty($validated['participant_user_ids'])) {
             return back()->withErrors([
@@ -88,10 +107,6 @@ class ScheduleController extends Controller
         }
 
         if ($response = $this->validateDeliveryConfiguration($validated, $organization->id)) {
-            return $response;
-        }
-
-        if ($response = $this->validateRecipientConfiguration($validated)) {
             return $response;
         }
 
@@ -114,23 +129,37 @@ class ScheduleController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
+
+        $workspaces = $currentOrganization->manageableWorkspacesForUser($organization, $request->user());
+        $workspaceIds = $workspaces->pluck('id');
+        $isOrganizationManager = $currentOrganization->canManageOrganization($organization, $request->user());
 
         return Inertia::render('schedules/edit', [
             'schedule' => $schedule->load('workspace', 'template', 'targetIntegration', 'promptChannel', 'targetChannel', 'participants'),
-            'workspaces' => $organization->workspaces()->orderBy('name')->get(['id', 'name']),
-            'templates' => StandupTemplate::where('organization_id', $organization->id)->orderBy('name')->get(['id', 'name']),
+            'workspaces' => $workspaces->map->only(['id', 'name'])->values(),
+            'templates' => StandupTemplate::where('organization_id', $organization->id)
+                ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspace_id', $workspaceIds))
+                ->orderBy('name')->get(['id', 'name']),
             'integrations' => Integration::with('channels')
                 ->where('organization_id', $organization->id)
+                ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspace_id', $workspaceIds))
                 ->whereIn('provider', ['slack', 'discord'])
                 ->orderBy('provider')
                 ->orderBy('name')
                 ->get(),
             'members' => $organization->users()
                 ->with([
-                    'workspaces' => fn ($query) => $query->wherePivot('is_active', true),
+                    'workspaces' => fn ($query) => $query
+                        ->wherePivot('is_active', true)
+                        ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspaces.id', $workspaceIds)),
                     'integrationUsers' => fn ($query) => $query->where('provider', 'slack')->select('id', 'integration_id', 'user_id', 'provider'),
                 ])
+                ->when(! $isOrganizationManager, fn ($query) => $query->whereHas(
+                    'workspaces',
+                    fn ($query) => $query->whereIn('workspaces.id', $workspaceIds)->where('workspace_user.is_active', true),
+                ))
                 ->orderBy('name')
                 ->get(['users.id', 'name', 'email']),
             'canManageSchedules' => true,
@@ -141,14 +170,19 @@ class ScheduleController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'timezone' => TimezoneRules::required(),
             'time_of_day' => ['required', 'date_format:H:i'],
-            'reminder_minutes_after' => ['required', 'integer', 'min:0'],
-            'summary_minutes_after' => ['required', 'integer', 'min:0'],
+            'end_time_of_day' => ['nullable', 'date_format:H:i'],
+            'reminder_minutes_before_end' => ['nullable', 'array', 'min:1'],
+            'reminder_minutes_before_end.*' => ['integer', 'min:1'],
+            'reminder_message_template' => ['nullable', 'string', 'max:1000'],
+            'reminder_minutes_after' => ['nullable', 'integer', 'min:0'],
+            'summary_minutes_after' => ['nullable', 'integer', 'min:1', 'max:1439'],
             'recipient_mode' => ['required', 'string', 'in:all_workspace_members,selected_members'],
             'delivery_method' => ['required', 'string', 'in:email,slack_dm,slack_channel,discord_channel'],
             'participant_user_ids' => ['nullable', 'array'],
@@ -158,6 +192,12 @@ class ScheduleController extends Controller
             'target_channel_id' => ['nullable', 'integer'],
             'is_active' => ['boolean'],
         ]);
+        $validated = $this->normalizeAndValidateReminderSettings($validated);
+        $this->authorizeScheduleSelection([
+            ...$validated,
+            'workspace_id' => $schedule->workspace_id,
+            'standup_template_id' => $schedule->standup_template_id,
+        ], $organization, $request, $currentOrganization);
 
         if ($validated['recipient_mode'] === 'selected_members' && empty($validated['participant_user_ids'])) {
             return back()->withErrors([
@@ -166,10 +206,6 @@ class ScheduleController extends Controller
         }
 
         if ($response = $this->validateDeliveryConfiguration($validated, $organization->id)) {
-            return $response;
-        }
-
-        if ($response = $this->validateRecipientConfiguration($validated)) {
             return $response;
         }
 
@@ -187,7 +223,8 @@ class ScheduleController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $schedule->delete();
 
@@ -198,7 +235,8 @@ class ScheduleController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $validated = $request->validate([
             'is_active' => ['required', 'boolean'],
@@ -221,10 +259,12 @@ class ScheduleController extends Controller
         StandupSchedule $schedule,
         CurrentOrganization $currentOrganization,
         StandupMessageService $messages,
+        StandupTimingService $timing,
     ): RedirectResponse {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $baseScheduleDate = now($schedule->timezone)->toDateString();
         $allowsMultipleManualRuns = $this->allowsMultipleManualRunsForManualSend();
@@ -266,6 +306,7 @@ class ScheduleController extends Controller
             'recipient_mode' => $schedule->recipient_mode,
         ]);
 
+        $timing->snapshotManual($run, $schedule);
         $messages->openRun($run);
 
         $pendingCount = $run->responses()->where('status', 'pending')->count();
@@ -288,7 +329,8 @@ class ScheduleController extends Controller
     ): RedirectResponse {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $run = StandupRun::query()
             ->where('standup_schedule_id', $schedule->id)
@@ -338,7 +380,8 @@ class ScheduleController extends Controller
     ): RedirectResponse {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $schedule->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $run = StandupRun::query()
             ->where('standup_schedule_id', $schedule->id)
@@ -430,16 +473,6 @@ class ScheduleController extends Controller
             ->pluck('users.id')
             ->all();
 
-        if ($schedule->delivery_method === 'slack_channel' && $schedule->target_integration_id) {
-            $slackLinkedUserIds = IntegrationUser::query()
-                ->where('integration_id', $schedule->target_integration_id)
-                ->whereIn('user_id', $activeWorkspaceUserIds)
-                ->pluck('user_id')
-                ->all();
-
-            $activeWorkspaceUserIds = array_values(array_intersect($activeWorkspaceUserIds, $slackLinkedUserIds));
-        }
-
         $schedule->participants()->sync($activeWorkspaceUserIds);
     }
 
@@ -490,37 +523,97 @@ class ScheduleController extends Controller
         return null;
     }
 
-    /**
-     * @param  array<string, mixed>  $validated
+    /** @param array<string, mixed> $validated */
+    private function authorizeScheduleSelection(
+        array $validated,
+        Organization $organization,
+        Request $request,
+        CurrentOrganization $currentOrganization,
+    ): void {
+        $workspaceIds = $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->pluck('id');
+        abort_unless($workspaceIds->contains((int) $validated['workspace_id']), 404);
+
+        abort_unless(StandupTemplate::query()
+            ->whereKey($validated['standup_template_id'])
+            ->where('organization_id', $organization->id)
+            ->where(function ($query) use ($validated): void {
+                $query->whereNull('workspace_id')
+                    ->orWhere('workspace_id', $validated['workspace_id']);
+            })
+            ->exists(), 404);
+
+        if (! empty($validated['target_integration_id'])) {
+            abort_unless(Integration::query()
+                ->whereKey($validated['target_integration_id'])
+                ->where('organization_id', $organization->id)
+                ->where('workspace_id', $validated['workspace_id'])
+                ->exists(), 404);
+        }
+    }
+
+    private function authorizeScheduleWorkspace(
+        StandupSchedule $schedule,
+        Organization $organization,
+        Request $request,
+        CurrentOrganization $currentOrganization,
+    ): void {
+        abort_unless(
+            $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->contains('id', $schedule->workspace_id),
+            404,
+        );
+    }
+
+    /** @param array<string, mixed> $validated
+     * @return array<string, mixed>
      */
-    private function validateRecipientConfiguration(array $validated): ?RedirectResponse
+    private function normalizeAndValidateReminderSettings(array $validated): array
     {
-        if (($validated['delivery_method'] ?? null) !== 'slack_channel') {
-            return null;
+        $start = Carbon::createFromFormat('H:i', $validated['time_of_day']);
+        $legacyDuration = (int) ($validated['summary_minutes_after'] ?? 90);
+        $end = ! empty($validated['end_time_of_day'])
+            ? Carbon::createFromFormat('H:i', $validated['end_time_of_day'])
+            : $start->copy()->addMinutes($legacyDuration);
+
+        if ($end->lessThanOrEqualTo($start)) {
+            $end->addDay();
         }
 
-        if (($validated['recipient_mode'] ?? null) !== 'selected_members') {
-            return null;
+        $duration = (int) $start->diffInMinutes($end);
+        $defaultOffsets = collect([60, 30, 15, 5])->filter(fn (int $offset): bool => $offset < $duration)->all();
+        $rawOffsets = $validated['reminder_minutes_before_end'] ?? $defaultOffsets;
+        $offsets = collect(is_array($rawOffsets) ? $rawOffsets : [])
+            ->map(fn ($offset): int => (int) $offset)
+            ->unique()
+            ->sortDesc()
+            ->values();
+        $invalidOffset = $offsets->first(fn (int $offset): bool => $offset <= 0 || $offset >= $duration);
+
+        if ($invalidOffset !== null) {
+            throw ValidationException::withMessages([
+                'reminder_minutes_before_end' => __('Every reminder must occur after the start and before the end time.'),
+            ]);
         }
 
-        $participantUserIds = array_unique($validated['participant_user_ids'] ?? []);
+        $template = $validated['reminder_message_template'] ?? StandupReminderMessageService::DEFAULT_TEMPLATE;
+        preg_match_all('/\{[^}]+\}/', $template, $matches);
+        $unsupported = collect($matches[0])->diff(['{title}', '{time_remaining}', '{end_time}', '{url}']);
 
-        if ($participantUserIds === []) {
-            return null;
+        if ($unsupported->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'reminder_message_template' => __('Unsupported reminder placeholder: :placeholder', [
+                    'placeholder' => $unsupported->first(),
+                ]),
+            ]);
         }
 
-        $linkedCount = IntegrationUser::query()
-            ->where('integration_id', $validated['target_integration_id'] ?? null)
-            ->whereIn('user_id', $participantUserIds)
-            ->distinct('user_id')
-            ->count('user_id');
-
-        if ($linkedCount === count($participantUserIds)) {
-            return null;
-        }
-
-        return back()->withErrors([
-            'participant_user_ids' => __('Slack channel schedules can only include recipients linked to this Slack integration. Import or link the Slack users first.'),
-        ])->withInput();
+        return [
+            ...$validated,
+            'end_time_of_day' => $end->format('H:i'),
+            'reminder_minutes_before_end' => $offsets->all(),
+            'reminder_message_template' => $template,
+            // Keep legacy columns populated during the compatibility window.
+            'summary_minutes_after' => $duration,
+            'reminder_minutes_after' => max(0, $duration - (int) ($offsets->last() ?? 0)),
+        ];
     }
 }

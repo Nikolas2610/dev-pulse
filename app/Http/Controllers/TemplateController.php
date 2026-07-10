@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Organization;
 use App\Models\StandupQuestion;
 use App\Models\StandupTemplate;
 use App\Services\CurrentOrganization;
@@ -18,14 +19,12 @@ class TemplateController extends Controller
         $organization = $currentOrganization->fromRequest($request);
 
         return Inertia::render('templates/index', [
-            'templates' => StandupTemplate::query()
-                ->with('questions', 'workspace')
-                ->where('organization_id', $organization?->id)
-                ->latest()
-                ->get(),
-            'workspaces' => $organization?->workspaces()->orderBy('name')->get(['id', 'name']) ?? [],
+            'indexEndpoint' => route('api.templates.index'),
+            'workspaces' => $organization
+                ? $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->map->only(['id', 'name'])->values()
+                : [],
             'canManageTemplates' => $organization
-                ? $currentOrganization->canManageOrganization($organization, $request->user())
+                ? $currentOrganization->canManageCurrentWorkspace($organization, $request->user())
                 : false,
         ]);
     }
@@ -34,10 +33,10 @@ class TemplateController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization, 403);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         return Inertia::render('templates/create', [
-            'workspaces' => $organization->workspaces()->orderBy('name')->get(['id', 'name']),
+            'workspaces' => $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->map->only(['id', 'name'])->values(),
             'canManageTemplates' => true,
         ]);
     }
@@ -46,7 +45,7 @@ class TemplateController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization, 403);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -67,6 +66,12 @@ class TemplateController extends Controller
             'questions.*.sort_order' => ['required', 'integer', 'min:1'],
         ]);
         $validated['questions'] = $this->normalizeQuestionOptions($validated['questions']);
+        $this->authorizeWorkspaceSelection(
+            $validated['workspace_id'] ?? null,
+            $organization,
+            $request,
+            $currentOrganization,
+        );
 
         $template = StandupTemplate::create([
             'organization_id' => $organization->id,
@@ -102,11 +107,12 @@ class TemplateController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $template->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeTemplateWorkspace($template, $organization, $request, $currentOrganization);
 
         return Inertia::render('templates/edit', [
             'template' => $template->load('questions'),
-            'workspaces' => $organization->workspaces()->orderBy('name')->get(['id', 'name']),
+            'workspaces' => $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->map->only(['id', 'name'])->values(),
             'canManageTemplates' => true,
         ]);
     }
@@ -115,7 +121,8 @@ class TemplateController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $template->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeTemplateWorkspace($template, $organization, $request, $currentOrganization);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -241,10 +248,43 @@ class TemplateController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $template->organization_id === $organization->id, 404);
-        abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
+        $this->authorizeTemplateWorkspace($template, $organization, $request, $currentOrganization);
 
         $template->delete();
 
         return to_route('templates.index');
+    }
+
+    private function authorizeWorkspaceSelection(
+        ?int $workspaceId,
+        Organization $organization,
+        Request $request,
+        CurrentOrganization $currentOrganization,
+    ): void {
+        if ($workspaceId === null) {
+            abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
+
+            return;
+        }
+
+        abort_unless(
+            $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->contains('id', $workspaceId),
+            404,
+        );
+    }
+
+    private function authorizeTemplateWorkspace(
+        StandupTemplate $template,
+        Organization $organization,
+        Request $request,
+        CurrentOrganization $currentOrganization,
+    ): void {
+        $this->authorizeWorkspaceSelection(
+            $template->workspace_id,
+            $organization,
+            $request,
+            $currentOrganization,
+        );
     }
 }

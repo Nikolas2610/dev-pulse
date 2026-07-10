@@ -9,6 +9,10 @@ import {
 } from '@/components/forms/form-components';
 import { Button } from '@/components/ui/button';
 import { RecipientPicker } from '@/pages/schedules/recipient-picker';
+import {
+    defaultReminderTemplate,
+    ReminderSettings,
+} from '@/pages/schedules/reminder-settings';
 
 export default function SchedulesEdit({
     schedule,
@@ -23,8 +27,12 @@ export default function SchedulesEdit({
         name: schedule.name,
         timezone: schedule.timezone,
         time_of_day: String(schedule.time_of_day).slice(0, 5),
-        reminder_minutes_after: schedule.reminder_minutes_after,
-        summary_minutes_after: schedule.summary_minutes_after,
+        end_time_of_day: String(schedule.end_time_of_day).slice(0, 5),
+        reminder_minutes_before_end: schedule.reminder_minutes_before_end ?? [
+            60, 30, 15, 5,
+        ],
+        reminder_message_template:
+            schedule.reminder_message_template ?? defaultReminderTemplate,
         recipient_mode: schedule.recipient_mode ?? 'all_workspace_members',
         delivery_method: schedule.delivery_method ?? 'email',
         participant_user_ids: (schedule.participants ?? []).map(
@@ -38,9 +46,6 @@ export default function SchedulesEdit({
     const selectedIntegration = integrations.find(
         (integration) =>
             String(integration.id) === String(data.target_integration_id),
-    );
-    const slackIntegrations = integrations.filter(
-        (integration) => integration.provider === 'slack',
     );
     const summaryIntegrations = integrations.filter((integration) =>
         ['slack', 'discord'].includes(integration.provider),
@@ -77,6 +82,7 @@ export default function SchedulesEdit({
           : selectedSummaryIntegration.provider !== 'slack'
             ? 'Select a Slack summary integration to choose a channel.'
             : '';
+
     return (
         <>
             <Head title={`Edit ${schedule.name}`} />
@@ -130,13 +136,27 @@ export default function SchedulesEdit({
                         />
                         <FormGrid>
                             <FormField
-                                label="Time"
+                                label="Start time"
                                 type="time"
                                 value={data.time_of_day}
                                 onChange={(event) =>
                                     setData('time_of_day', event.target.value)
                                 }
                             />
+                            <FormField
+                                label="End / summary time"
+                                type="time"
+                                value={data.end_time_of_day}
+                                onChange={(event) =>
+                                    setData(
+                                        'end_time_of_day',
+                                        event.target.value,
+                                    )
+                                }
+                                error={errors.end_time_of_day}
+                            />
+                        </FormGrid>
+                        <FormGrid>
                             <TimezoneSelect
                                 label="Timezone"
                                 value={data.timezone}
@@ -145,30 +165,19 @@ export default function SchedulesEdit({
                                 }
                             />
                         </FormGrid>
-                        <FormGrid>
-                            <FormField
-                                label="Reminder delay"
-                                type="number"
-                                value={data.reminder_minutes_after}
-                                onChange={(event) =>
-                                    setData(
-                                        'reminder_minutes_after',
-                                        Number(event.target.value),
-                                    )
-                                }
-                            />
-                            <FormField
-                                label="Summary delay"
-                                type="number"
-                                value={data.summary_minutes_after}
-                                onChange={(event) =>
-                                    setData(
-                                        'summary_minutes_after',
-                                        Number(event.target.value),
-                                    )
-                                }
-                            />
-                        </FormGrid>
+                        <ReminderSettings
+                            offsets={data.reminder_minutes_before_end}
+                            template={data.reminder_message_template}
+                            endTime={data.end_time_of_day}
+                            offsetsError={errors.reminder_minutes_before_end}
+                            templateError={errors.reminder_message_template}
+                            onOffsetsChange={(offsets) =>
+                                setData('reminder_minutes_before_end', offsets)
+                            }
+                            onTemplateChange={(template) =>
+                                setData('reminder_message_template', template)
+                            }
+                        />
                         <FormSelect
                             label="Notify devs by"
                             value={data.delivery_method}
@@ -361,14 +370,7 @@ export default function SchedulesEdit({
                             members={members}
                             recipientMode={data.recipient_mode}
                             participantUserIds={data.participant_user_ids}
-                            requiresSlackRecipients={
-                                data.delivery_method === 'slack_channel'
-                            }
-                            slackIntegrationId={
-                                data.delivery_method === 'slack_channel'
-                                    ? data.target_integration_id
-                                    : null
-                            }
+                            requiresSlackRecipients={false}
                             error={errors.participant_user_ids}
                             onRecipientModeChange={(mode) =>
                                 setData((current) => ({

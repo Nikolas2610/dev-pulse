@@ -86,8 +86,9 @@ class StandupSummaryService
             ],
         );
 
+        $hasPendingResponses = $run->responses->contains(fn ($response): bool => $response->status === 'pending');
         $run->forceFill([
-            'status' => 'completed',
+            'status' => $hasPendingResponses ? 'active' : 'completed',
             'summary_posted_at' => now(),
         ])->save();
 
@@ -112,8 +113,9 @@ class StandupSummaryService
     public function renderSummary(StandupRun $run): string
     {
         $recipients = $run->responses->map(fn ($response) => $response->user)->filter();
-        $responses = $run->responses->where('status', 'submitted')->sortBy('submitted_at');
-        $pending = $run->responses->where('status', 'pending')->sortBy(fn ($response) => $response->user?->name);
+        $responses = $this->responsesAtCheckpoint($run);
+        $pending = $run->responses->reject(fn ($response) => $responses->contains('id', $response->id))
+            ->sortBy(fn ($response) => $response->user?->name);
         $lines = [
             "*Daily standup - {$run->workspace->name}*",
             $run->run_date->toDateString(),
@@ -147,8 +149,9 @@ class StandupSummaryService
         Integration $integration,
         IntegrationChannel $channel,
     ): ?string {
-        $responses = $run->responses->where('status', 'submitted')->sortBy('submitted_at');
-        $pending = $run->responses->where('status', 'pending')->sortBy(fn ($response) => $response->user?->name);
+        $responses = $this->responsesAtCheckpoint($run);
+        $pending = $run->responses->reject(fn ($response) => $responses->contains('id', $response->id))
+            ->sortBy(fn ($response) => $response->user?->name);
         $integrationUsers = $integration->users()
             ->whereNotNull('user_id')
             ->get()
@@ -172,6 +175,51 @@ class StandupSummaryService
         }
 
         return collect($messageIds)->filter()->first();
+    }
+
+    public function postLateAddendum(StandupResponse $response): void
+    {
+        $response->loadMissing('user', 'answers.question', 'run.schedule.targetIntegration', 'run.schedule.targetChannel');
+        $run = $response->run;
+        $integration = $run->schedule?->targetIntegration;
+        $channel = $run->schedule?->targetChannel;
+
+        if ($integration?->provider === 'slack' && $channel) {
+            $integrationUsers = $integration->users()->whereNotNull('user_id')->get()->keyBy('user_id');
+            $this->slack->postMessage(
+                $integration,
+                $channel->external_channel_id,
+                '*Late update*'.PHP_EOL.$this->renderSlackSubmittedResponse($response, $integrationUsers),
+            );
+        } elseif ($integration?->provider === 'discord') {
+            $this->discord->postWebhook($integration, $this->renderLateAddendum($response));
+        } else {
+            Log::info('Late standup addendum skipped: no external summary destination', [
+                'standup_run_id' => $run->id,
+                'standup_response_id' => $response->id,
+            ]);
+        }
+
+        $response->forceFill(['late_summary_posted_at' => now()])->save();
+    }
+
+    private function responsesAtCheckpoint(StandupRun $run): Collection
+    {
+        return $run->responses
+            ->filter(fn ($response): bool => $response->status === 'submitted'
+                && (! $run->summary_due_at || $response->submitted_at?->lessThanOrEqualTo($run->summary_due_at)))
+            ->sortBy('submitted_at');
+    }
+
+    private function renderLateAddendum(StandupResponse $response): string
+    {
+        $lines = ['Late update from '.$response->user->name, ''];
+
+        foreach ($response->answers->sortBy(fn ($answer) => $answer->question?->sort_order ?? 0) as $answer) {
+            $lines[] = $this->summaryQuestionLabel($answer->question).': '.($answer->answer_text ?: '-');
+        }
+
+        return trim(implode(PHP_EOL, $lines));
     }
 
     /**

@@ -10,22 +10,10 @@ use Inertia\Response;
 
 class StandupRunController extends Controller
 {
-    public function index(Request $request, CurrentOrganization $currentOrganization): Response
+    public function index(): Response
     {
-        $organization = $currentOrganization->fromRequest($request);
-        $workspace = $organization && $request->user()
-            ? $currentOrganization->currentWorkspaceForUser($organization, $request->user())
-            : null;
-
         return Inertia::render('standups/index', [
-            'runs' => StandupRun::query()
-                ->with('workspace', 'template')
-                ->where('organization_id', $organization?->id)
-                ->when($workspace, fn ($query) => $query->where('workspace_id', $workspace->id))
-                ->when($request->string('status')->toString(), fn ($query, $status) => $query->where('status', $status))
-                ->when($request->date('date'), fn ($query, $date) => $query->whereDate('run_date', $date))
-                ->latest('run_date')
-                ->get(),
+            'indexEndpoint' => route('api.standups.index'),
         ]);
     }
 
@@ -33,6 +21,10 @@ class StandupRunController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $run->organization_id === $organization->id, 404);
+        abort_unless(
+            $currentOrganization->workspacesForUser($organization, $request->user())->contains('id', $run->workspace_id),
+            404,
+        );
 
         $run->load([
             'workspace',

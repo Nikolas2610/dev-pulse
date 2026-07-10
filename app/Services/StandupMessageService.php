@@ -46,11 +46,11 @@ class StandupMessageService
         return $run;
     }
 
-    public function sendReminder(StandupRun $run): void
+    public function sendReminder(StandupRun $run, ?string $message = null): void
     {
         $run->loadMissing('workspace.users', 'template.questions', 'schedule.targetIntegration', 'schedule.promptChannel', 'schedule.participants', 'responses');
 
-        $this->sendMessagesToPendingMembers($run, reminder: true);
+        $this->sendPrivateReminder($run, $message ?? $this->messageText($run, true));
     }
 
     /**
@@ -60,15 +60,6 @@ class StandupMessageService
     {
         $query = $run->workspace->users()
             ->wherePivot('is_active', true);
-
-        if ($run->schedule?->delivery_method === 'slack_channel' && $run->schedule?->target_integration_id) {
-            $slackLinkedUserIds = IntegrationUser::query()
-                ->where('integration_id', $run->schedule->target_integration_id)
-                ->whereNotNull('user_id')
-                ->pluck('user_id');
-
-            $query->whereIn('users.id', $slackLinkedUserIds);
-        }
 
         if ($run->schedule?->recipient_mode === 'selected_members') {
             $selectedIds = $run->schedule->participants->pluck('id');
@@ -112,6 +103,42 @@ class StandupMessageService
             'discord_channel' => $this->sendDiscordChannelMessage($run, $reminder),
             default => null,
         };
+    }
+
+    private function sendPrivateReminder(StandupRun $run, string $message): void
+    {
+        $pendingUsers = $this->pendingUsers($run);
+
+        if ($pendingUsers->isEmpty()) {
+            return;
+        }
+
+        $deliveryMethod = $run->schedule?->delivery_method ?? 'email';
+        $integration = $run->schedule?->targetIntegration;
+
+        if (! in_array($deliveryMethod, ['slack_dm', 'slack_channel'], true) || ! $integration || $integration->provider !== 'slack') {
+            foreach ($pendingUsers as $member) {
+                $member->notify(new StandupPromptNotification($run, true, $message));
+            }
+
+            return;
+        }
+
+        $integrationUsers = IntegrationUser::query()
+            ->where('integration_id', $integration->id)
+            ->whereIn('user_id', $pendingUsers->pluck('id'))
+            ->get()
+            ->keyBy('user_id');
+
+        foreach ($pendingUsers as $member) {
+            $integrationUser = $integrationUsers->get($member->id);
+
+            if ($integrationUser?->external_user_id) {
+                $this->slack->sendDirectMessage($integration, $integrationUser->external_user_id, $message);
+            } else {
+                $member->notify(new StandupPromptNotification($run, true, $message));
+            }
+        }
     }
 
     private function sendEmailMessages(StandupRun $run, bool $reminder): void

@@ -1,3 +1,4 @@
+import { Plus, Trash2 } from 'lucide-react';
 import {
     FormCheckbox,
     FormField,
@@ -5,7 +6,6 @@ import {
 } from '@/components/forms/form-components';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2 } from 'lucide-react';
 
 export type TemplateQuestionForm = {
     id?: number;
@@ -71,7 +71,8 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                 .map((question, questionIndex) => {
                     const dependencyIndex = question.depends_on_question_index;
                     const nextDependencyIndex =
-                        dependencyIndex === null || dependencyIndex === undefined
+                        dependencyIndex === null ||
+                        dependencyIndex === undefined
                             ? null
                             : dependencyIndex === index
                               ? null
@@ -116,7 +117,11 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
         const options = choiceOptions(questions[questionIndex]).filter(
             (_, index) => index !== optionIndex,
         );
-        setQuestion(questionIndex, 'options_json', options.length ? options : ['']);
+        setQuestion(
+            questionIndex,
+            'options_json',
+            options.length ? options : [''],
+        );
     };
 
     const reportingKeyOptions = [
@@ -138,15 +143,20 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
     ];
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-                <div>
+        <div className="min-w-0 space-y-3">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                     <Label>Standup questions</Label>
                     <p className="text-xs text-muted-foreground">
                         These are sent to members when the standup opens.
                     </p>
                 </div>
-                <Button type="button" variant="outline" onClick={addQuestion}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:w-auto"
+                    onClick={addQuestion}
+                >
                     Add question
                 </Button>
             </div>
@@ -157,7 +167,7 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                         key={question.id ?? `new-${index}`}
                         className="rounded-lg border bg-background p-4"
                     >
-                        <div className="mb-3 flex items-center justify-between">
+                        <div className="mb-3 flex items-center justify-between gap-3">
                             <div className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
                                 Question {index + 1}
                             </div>
@@ -224,13 +234,16 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                                 question.answer_type,
                             ) && (
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between gap-3">
+                                    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
                                         <Label>Answer options</Label>
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => addChoiceOption(index)}
+                                            className="sm:w-auto"
+                                            onClick={() =>
+                                                addChoiceOption(index)
+                                            }
                                         >
                                             <Plus />
                                             Add option
@@ -241,7 +254,7 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                                             (option, optionIndex) => (
                                                 <div
                                                     key={optionIndex}
-                                                    className="flex items-center gap-2"
+                                                    className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2"
                                                 >
                                                     <FormField
                                                         label={`Option ${optionIndex + 1}`}
@@ -251,15 +264,18 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                                                             setChoiceOption(
                                                                 index,
                                                                 optionIndex,
-                                                                event.target.value,
+                                                                event.target
+                                                                    .value,
                                                             )
                                                         }
                                                         placeholder={
                                                             optionIndex === 0
                                                                 ? 'bad'
-                                                                : optionIndex === 1
+                                                                : optionIndex ===
+                                                                    1
                                                                   ? 'good'
-                                                                  : optionIndex === 2
+                                                                  : optionIndex ===
+                                                                      2
                                                                     ? 'excellent'
                                                                     : 'Option'
                                                         }
@@ -287,7 +303,8 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                                         )}
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                        Each input becomes one selectable answer.
+                                        Each input becomes one selectable
+                                        answer.
                                     </p>
                                 </div>
                             )}
@@ -295,38 +312,55 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                             <div className="grid gap-3 md:grid-cols-[1fr_160px]">
                                 <FormSelect
                                     label="Show question when"
-                                    value={question.depends_on_question_index ?? ''}
+                                    value={
+                                        question.depends_on_question_index ?? ''
+                                    }
                                     onChange={(event) => {
                                         const value = event.target.value;
 
                                         setQuestionFields(index, {
                                             depends_on_question_index:
-                                                value === '' ? null : Number(value),
+                                                value === ''
+                                                    ? null
+                                                    : Number(value),
                                             depends_on_operator:
                                                 value === '' ? null : 'equals',
                                             depends_on_value:
                                                 value === ''
                                                     ? ''
-                                                    : question.depends_on_value || 'Yes',
+                                                    : question.depends_on_value ||
+                                                      'Yes',
                                         });
                                     }}
                                 >
                                     <option value="">Always show</option>
-                                    {questions.slice(0, index).map((candidate, candidateIndex) => (
-                                        <option
-                                            key={candidate.id ?? `candidate-${candidateIndex}`}
-                                            value={candidateIndex}
-                                        >
-                                            Q{candidateIndex + 1}: {candidate.question_text || 'Untitled question'} equals
-                                        </option>
-                                    ))}
+                                    {questions
+                                        .slice(0, index)
+                                        .map((candidate, candidateIndex) => (
+                                            <option
+                                                key={
+                                                    candidate.id ??
+                                                    `candidate-${candidateIndex}`
+                                                }
+                                                value={candidateIndex}
+                                            >
+                                                Q{candidateIndex + 1}:{' '}
+                                                {candidate.question_text ||
+                                                    'Untitled question'}{' '}
+                                                equals
+                                            </option>
+                                        ))}
                                 </FormSelect>
 
                                 {question.depends_on_question_index !== null &&
-                                    question.depends_on_question_index !== undefined && (
+                                    question.depends_on_question_index !==
+                                        undefined && (
                                         <FormSelect
                                             label="Answer value"
-                                            value={question.depends_on_value ?? 'Yes'}
+                                            value={
+                                                question.depends_on_value ??
+                                                'Yes'
+                                            }
                                             onChange={(event) =>
                                                 setQuestion(
                                                     index,
@@ -349,7 +383,7 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                                 onCheckedChange={(checked) =>
                                     setQuestion(index, 'is_required', checked)
                                 }
-                                className="w-fit"
+                                className="w-full sm:w-fit"
                             />
                         </div>
                     </div>

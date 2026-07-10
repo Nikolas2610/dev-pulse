@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\CurrentOrganization;
+use App\Services\RoleAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -37,6 +38,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $currentOrganization = app(CurrentOrganization::class);
+        $roleAccess = app(RoleAccess::class);
         $organization = $currentOrganization->fromRequest($request);
         $user = $request->user();
         $availableWorkspaces = $organization && $user
@@ -77,6 +79,15 @@ class HandleInertiaRequests extends Middleware
                 'slug' => $workspace->slug,
                 'timezone' => $workspace->timezone,
             ])->values(),
+            'access' => [
+                'organizationRole' => $organization && $user
+                    ? $roleAccess->organizationRole($organization, $user)
+                    : null,
+                'workspaceRole' => $currentWorkspace && $user
+                    ? $roleAccess->workspaceRole($currentWorkspace, $user)
+                    : null,
+                'capabilities' => $roleAccess->capabilities($organization, $currentWorkspace, $user),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -59,8 +59,8 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        DevCommands::artisan('serve --host=localhost --port='.env('SERVER_PORT', 8003), 'server');
-        DevCommands::node('dev -- --host=localhost --port='.env('VITE_PORT', 5175), 'vite');
+        DevCommands::artisan('serve --host='.env('SERVER_HOST', '0.0.0.0').' --port='.env('SERVER_PORT', 8003), 'server');
+        DevCommands::node('dev -- --host='.env('VITE_HOST', '0.0.0.0').' --port='.env('VITE_PORT', 5175), 'vite');
 
         if (! function_exists('pcntl_fork')) {
             DevCommands::except('logs');

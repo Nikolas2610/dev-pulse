@@ -1,4 +1,5 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
     Cable,
@@ -34,6 +35,10 @@ export default function SlackIntegration({
     interactionsUrl: string;
     eventsUrl: string;
 }) {
+    const canManageTeam = usePage().props.access.capabilities.manageTeam;
+    const [activeTab, setActiveTab] = useState<
+        'credentials' | 'sync' | 'members' | 'urls'
+    >('credentials');
     const { data, setData, post, processing, errors } = useForm({
         client_id: integration?.client_id ?? '',
         client_secret: '',
@@ -92,6 +97,33 @@ export default function SlackIntegration({
                     </Button>
                 </div>
 
+                <div className="flex flex-wrap gap-2 border-b border-border/70 pb-3">
+                    <IntegrationTab
+                        active={activeTab === 'credentials'}
+                        onClick={() => setActiveTab('credentials')}
+                    >
+                        Credentials
+                    </IntegrationTab>
+                    <IntegrationTab
+                        active={activeTab === 'sync'}
+                        onClick={() => setActiveTab('sync')}
+                    >
+                        Sync
+                    </IntegrationTab>
+                    <IntegrationTab
+                        active={activeTab === 'members'}
+                        onClick={() => setActiveTab('members')}
+                    >
+                        Members
+                    </IntegrationTab>
+                    <IntegrationTab
+                        active={activeTab === 'urls'}
+                        onClick={() => setActiveTab('urls')}
+                    >
+                        App URLs
+                    </IntegrationTab>
+                </div>
+
                 {!isConfigured && (
                     <div className="dp-panel border-amber-300/50 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
                         <div className="flex gap-3 p-4">
@@ -109,7 +141,7 @@ export default function SlackIntegration({
                     </div>
                 )}
 
-                <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+                {activeTab === 'credentials' && (
                     <div className="dp-panel">
                         <div className="dp-panel-header">
                             <div>
@@ -153,7 +185,7 @@ export default function SlackIntegration({
                                 value={data.client_secret}
                                 placeholder={
                                     hasWorkspaceCredentials
-                                        ? 'Enter a new secret to replace it'
+                                        ? '******** saved - enter a new secret to replace it'
                                         : ''
                                 }
                                 onChange={(event) =>
@@ -167,7 +199,7 @@ export default function SlackIntegration({
                                 value={data.signing_secret}
                                 placeholder={
                                     hasSigningSecret
-                                        ? 'Enter a new signing secret to replace it'
+                                        ? '******** saved - enter a new signing secret to replace it'
                                         : ''
                                 }
                                 onChange={(event) =>
@@ -185,7 +217,9 @@ export default function SlackIntegration({
                             />
                         </form>
                     </div>
+                )}
 
+                {activeTab === 'urls' && (
                     <div className="dp-panel h-fit">
                         <div className="dp-panel-body">
                             <div className="dp-kicker">OAuth callback URL</div>
@@ -206,9 +240,9 @@ export default function SlackIntegration({
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
 
-                {integration ? (
+                {activeTab === 'sync' && integration ? (
                     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
                         <div className="dp-panel dp-signal">
                             <div className="dp-panel-header">
@@ -269,7 +303,7 @@ export default function SlackIntegration({
                             </div>
                         </div>
                     </div>
-                ) : (
+                ) : activeTab === 'sync' ? (
                     <div className="dp-panel dp-signal">
                         <div className="dp-panel-body">
                             <h2 className="font-semibold">
@@ -281,9 +315,23 @@ export default function SlackIntegration({
                             </p>
                         </div>
                     </div>
+                ) : null}
+
+                {activeTab === 'members' && !integration && (
+                    <div className="dp-panel dp-signal">
+                        <div className="dp-panel-body">
+                            <h2 className="font-semibold">
+                                Connect Slack first
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Synced Slack members appear here after the
+                                workspace is connected.
+                            </p>
+                        </div>
+                    </div>
                 )}
 
-                {integration && (
+                {activeTab === 'members' && integration && (
                     <div className="dp-panel">
                         <div className="dp-panel-header">
                             <div>
@@ -291,8 +339,9 @@ export default function SlackIntegration({
                                     Synced Slack users
                                 </h2>
                                 <p className="text-sm text-muted-foreground">
-                                    Import selected Slack users into DevPulse so
-                                    they can be chosen as schedule recipients.
+                                    {canManageTeam
+                                        ? 'Import selected Slack users into DevPulse so they can be chosen as schedule recipients.'
+                                        : 'Review the Slack users synced for this workspace.'}
                                 </p>
                             </div>
                             <Badge variant="secondary">
@@ -308,6 +357,11 @@ export default function SlackIntegration({
                             <form
                                 onSubmit={(event) => {
                                     event.preventDefault();
+
+                                    if (!canManageTeam) {
+                                        return;
+                                    }
+
                                     importForm.post(
                                         `/integrations/slack/${integration.id}/import-users`,
                                         {
@@ -335,7 +389,10 @@ export default function SlackIntegration({
                                                 <input
                                                     type="checkbox"
                                                     className="mt-1"
-                                                    disabled={!canImport}
+                                                    disabled={
+                                                        !canManageTeam ||
+                                                        !canImport
+                                                    }
                                                     checked={selectedImportIds.has(
                                                         slackUser.id,
                                                     )}
@@ -394,70 +451,104 @@ export default function SlackIntegration({
                                         {importForm.errors.integration_user_ids}
                                     </p>
                                 )}
-                                <div className="flex flex-wrap items-end gap-3 border-t p-5">
-                                    <FormSelect
-                                        label="Organization role"
-                                        className="min-w-48"
-                                        value={
-                                            importForm.data.organization_role
-                                        }
-                                        onChange={(event) =>
-                                            importForm.setData(
-                                                'organization_role',
-                                                event.target.value,
-                                            )
-                                        }
-                                        options={[
-                                            { label: 'Admin', value: 'admin' },
-                                            {
-                                                label: 'Manager',
-                                                value: 'manager',
-                                            },
-                                            {
-                                                label: 'Member',
-                                                value: 'member',
-                                            },
-                                        ]}
-                                    />
-                                    <FormSelect
-                                        label="Workspace role"
-                                        className="min-w-48"
-                                        value={importForm.data.workspace_role}
-                                        onChange={(event) =>
-                                            importForm.setData(
-                                                'workspace_role',
-                                                event.target.value,
-                                            )
-                                        }
-                                        options={[
-                                            {
-                                                label: 'Manager',
-                                                value: 'manager',
-                                            },
-                                            {
-                                                label: 'Member',
-                                                value: 'member',
-                                            },
-                                        ]}
-                                    />
-                                    <Button
-                                        disabled={
-                                            importForm.processing ||
-                                            importForm.data.integration_user_ids
-                                                .length === 0 ||
-                                            importableUsers.length === 0
-                                        }
-                                    >
-                                        <UserPlus />
-                                        Import selected
-                                    </Button>
-                                </div>
+                                {canManageTeam && (
+                                    <div className="flex flex-wrap items-end gap-3 border-t p-5">
+                                        <FormSelect
+                                            label="Organization role"
+                                            className="min-w-48"
+                                            value={
+                                                importForm.data
+                                                    .organization_role
+                                            }
+                                            onChange={(event) =>
+                                                importForm.setData(
+                                                    'organization_role',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            options={[
+                                                {
+                                                    label: 'Admin',
+                                                    value: 'admin',
+                                                },
+                                                {
+                                                    label: 'Manager',
+                                                    value: 'manager',
+                                                },
+                                                {
+                                                    label: 'Member',
+                                                    value: 'member',
+                                                },
+                                            ]}
+                                        />
+                                        <FormSelect
+                                            label="Workspace role"
+                                            className="min-w-48"
+                                            value={
+                                                importForm.data.workspace_role
+                                            }
+                                            onChange={(event) =>
+                                                importForm.setData(
+                                                    'workspace_role',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            options={[
+                                                {
+                                                    label: 'Manager',
+                                                    value: 'manager',
+                                                },
+                                                {
+                                                    label: 'Member',
+                                                    value: 'member',
+                                                },
+                                            ]}
+                                        />
+                                        <Button
+                                            disabled={
+                                                importForm.processing ||
+                                                importForm.data
+                                                    .integration_user_ids
+                                                    .length === 0 ||
+                                                importableUsers.length === 0
+                                            }
+                                        >
+                                            <UserPlus />
+                                            Import selected
+                                        </Button>
+                                    </div>
+                                )}
                             </form>
                         )}
                     </div>
                 )}
             </div>
         </>
+    );
+}
+
+function IntegrationTab({
+    active,
+    onClick,
+    children,
+}: {
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={[
+                'rounded-md border px-3 py-1.5 text-sm font-medium transition',
+                active
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:text-foreground',
+            ].join(' ')}
+        >
+            {children}
+        </button>
     );
 }
 
