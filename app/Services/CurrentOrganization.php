@@ -42,6 +42,18 @@ class CurrentOrganization
         return in_array($this->roleForUser($organization, $user), ['owner', 'admin'], true);
     }
 
+    public function canManageCurrentWorkspace(Organization $organization, User $user): bool
+    {
+        $workspace = $this->currentWorkspaceForUser($organization, $user);
+
+        return app(RoleAccess::class)->allows(
+            RoleAccess::MANAGE_WORKSPACE,
+            $organization,
+            $workspace,
+            $user,
+        );
+    }
+
     public function workspacesForUser(Organization $organization, User $user)
     {
         if ($this->canManageOrganization($organization, $user)) {
@@ -51,6 +63,22 @@ class CurrentOrganization
         return $user->workspaces()
             ->where('organization_id', $organization->id)
             ->wherePivot('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function manageableWorkspacesForUser(Organization $organization, User $user)
+    {
+        $organizationRole = $this->roleForUser($organization, $user);
+
+        if (in_array($organizationRole, ['owner', 'admin'], true)) {
+            return $organization->workspaces()->orderBy('name')->get();
+        }
+
+        return $user->workspaces()
+            ->where('workspaces.organization_id', $organization->id)
+            ->where('workspace_user.is_active', true)
+            ->when($organizationRole !== 'manager', fn ($query) => $query->where('workspace_user.role', 'manager'))
             ->orderBy('name')
             ->get();
     }

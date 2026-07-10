@@ -13,10 +13,15 @@ use App\Models\StandupSchedule;
 use App\Models\StandupTemplate;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Notifications\TeamInvitationNotification;
 use App\Services\ActivityEventService;
 use App\Services\SlackIntegrationService;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class DevPulseFoundationTest extends TestCase
@@ -457,13 +462,6 @@ class DevPulseFoundationTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('schedules.store'), $payload)
-            ->assertSessionHasErrors(['participant_user_ids']);
-
-        $this->actingAs($admin)
-            ->post(route('schedules.store'), [
-                ...$payload,
-                'participant_user_ids' => [$linkedMember->id],
-            ])
             ->assertRedirect(route('schedules.index'));
 
         $schedule = StandupSchedule::where('name', 'Slack Channel Delivery')->firstOrFail();
@@ -472,7 +470,7 @@ class DevPulseFoundationTest extends TestCase
             'standup_schedule_id' => $schedule->id,
             'user_id' => $linkedMember->id,
         ]);
-        $this->assertDatabaseMissing('standup_schedule_user', [
+        $this->assertDatabaseHas('standup_schedule_user', [
             'standup_schedule_id' => $schedule->id,
             'user_id' => $unlinkedMember->id,
         ]);
@@ -480,6 +478,8 @@ class DevPulseFoundationTest extends TestCase
 
     public function test_admin_can_invite_edit_and_remove_member_from_workspace(): void
     {
+        Notification::fake();
+
         [$admin, $organization, $workspace] = $this->createUserWithOrganization('admin');
 
         $inviteResponse = $this->actingAs($admin)->post(route('team-members.store'), [
@@ -493,6 +493,22 @@ class DevPulseFoundationTest extends TestCase
         $inviteResponse->assertRedirect(route('team-members.index'));
 
         $member = User::where('email', 'ada@example.com')->firstOrFail();
+
+        Notification::assertSentTo(
+            $member,
+            TeamInvitationNotification::class,
+            function (TeamInvitationNotification $notification) use ($member, $organization, $workspace): bool {
+                $mail = $notification->toMail($member);
+
+                return $notification->token !== null
+                    && $notification->organization->is($organization)
+                    && $notification->workspace->is($workspace)
+                    && $mail->subject === "You're invited to {$organization->name} on DevPulse"
+                    && $mail->actionText === 'Accept invitation'
+                    && str_contains($mail->actionUrl, '/invitations/');
+            },
+        );
+        Notification::assertNotSentTo($member, ResetPassword::class);
 
         $this->assertSame($organization->id, $member->current_organization_id);
         $this->assertDatabaseHas('organization_user', [
@@ -536,6 +552,89 @@ class DevPulseFoundationTest extends TestCase
             'organization_id' => $organization->id,
             'user_id' => $member->id,
         ]);
+    }
+
+    public function test_invited_member_can_accept_the_invitation_and_create_a_password(): void
+    {
+        Notification::fake();
+
+        [$admin, $organization, $workspace] = $this->createUserWithOrganization('admin');
+
+        $this->actingAs($admin)->post(route('team-members.store'), [
+            'name' => 'Katherine Johnson',
+            'email' => 'katherine@example.com',
+            'organization_role' => 'member',
+            'workspace_id' => $workspace->id,
+            'workspace_role' => 'member',
+        ])->assertRedirect(route('team-members.index'));
+
+        $member = User::where('email', 'katherine@example.com')->firstOrFail();
+        $token = null;
+
+        Notification::assertSentTo(
+            $member,
+            TeamInvitationNotification::class,
+            function (TeamInvitationNotification $notification) use (&$token): bool {
+                $token = $notification->token;
+
+                return $token !== null;
+            },
+        );
+
+        $this->post(route('logout'));
+        $this->assertGuest();
+
+        $this->get(route('invitations.accept', [
+            'token' => $token,
+            'email' => $member->email,
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('auth/accept-invitation')
+            ->where('email', $member->email)
+            ->where('organizationName', $organization->name)
+            ->where('workspaceName', $workspace->name)
+        );
+
+        $password = 'Invited-password-123!';
+
+        $this->post(route('invitations.store'), [
+            'token' => $token,
+            'email' => $member->email,
+            'password' => $password,
+            'password_confirmation' => $password,
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($member);
+        $this->assertTrue(Hash::check($password, $member->fresh()->password));
+    }
+
+    public function test_existing_user_invitation_does_not_change_their_password(): void
+    {
+        Notification::fake();
+
+        [$admin, $organization, $workspace] = $this->createUserWithOrganization('admin');
+        $member = User::factory()->create(['email' => 'existing@example.com']);
+
+        $this->actingAs($admin)->post(route('team-members.store'), [
+            'name' => $member->name,
+            'email' => $member->email,
+            'organization_role' => 'member',
+            'workspace_id' => $workspace->id,
+            'workspace_role' => 'member',
+        ])->assertRedirect(route('team-members.index'));
+
+        Notification::assertSentTo(
+            $member,
+            TeamInvitationNotification::class,
+            function (TeamInvitationNotification $notification) use ($member): bool {
+                $mail = $notification->toMail($member);
+
+                return $notification->token === null
+                    && $mail->actionText === 'Open DevPulse'
+                    && $mail->actionUrl === route('login');
+            },
+        );
+        Notification::assertNotSentTo($member, ResetPassword::class);
+        $this->assertTrue(Hash::check('password', $member->fresh()->password));
     }
 
     public function test_member_cannot_invite_edit_or_remove_team_members(): void

@@ -14,11 +14,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
     'name',
     'timezone',
     'time_of_day',
+    'end_time_of_day',
     'days_of_week',
     'recipient_mode',
     'delivery_method',
     'reminder_minutes_after',
     'summary_minutes_after',
+    'reminder_minutes_before_end',
+    'reminder_message_template',
     'target_integration_id',
     'prompt_channel_id',
     'target_channel_id',
@@ -31,6 +34,7 @@ class StandupSchedule extends Model
     {
         return [
             'days_of_week' => 'array',
+            'reminder_minutes_before_end' => 'array',
             'is_active' => 'boolean',
         ];
     }

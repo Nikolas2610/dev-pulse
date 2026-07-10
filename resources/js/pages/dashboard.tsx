@@ -1,29 +1,72 @@
 import { Head, Link } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Clock3, MessageSquare } from 'lucide-react';
+import {
+    CalendarDays,
+    CheckCircle2,
+    Clock3,
+    MessageSquare,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { dashboard } from '@/routes';
+
+type PeriodStats = {
+    label: string;
+    submitted: number;
+    expected: number;
+    pending: number;
+    blockers: number;
+    completionRate: number;
+};
 
 type DashboardProps = {
     todayRun: any | null;
     latestSummary: { summary_text: string } | null;
+    stats: {
+        today: PeriodStats & {
+            hasRun: boolean;
+            status: string | null;
+        };
+        week: PeriodStats & {
+            runs: number;
+            completedRuns: number;
+        };
+    };
 };
 
-export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
+const nonBlockerAnswers = new Set([
+    '-',
+    'n/a',
+    'na',
+    'no',
+    'no blocker',
+    'no blockers',
+    'none',
+    'nope',
+    'not blocked',
+    'nothing',
+]);
+
+export default function Dashboard({
+    todayRun,
+    latestSummary,
+    stats,
+}: DashboardProps) {
     const submittedResponses = (todayRun?.responses ?? []).filter(
         (response: any) => response.status === 'submitted',
     );
     const responses = todayRun?.responses ?? [];
-    const members = responses
-        .map((response: any) => response.user)
-        .filter(Boolean);
     const pending = responses
         .filter((response: any) => response.status === 'pending')
         .map((response: any) => response.user)
         .filter(Boolean);
-    const pendingResponses = responses.filter(
-        (response: any) => response.status === 'pending',
-    );
     const blockers = submittedResponses.flatMap((response: any) =>
         (response.answers ?? [])
             .filter((answer: any) =>
@@ -31,16 +74,18 @@ export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
                     .toLowerCase()
                     .includes('blocker'),
             )
-            .filter((answer: any) => answer.answer_text)
+            .filter((answer: any) => {
+                const value = String(answer.answer_text ?? '')
+                    .trim()
+                    .toLowerCase();
+
+                return value.length > 0 && !nonBlockerAnswers.has(value);
+            })
             .map((answer: any) => ({
                 member: response.user?.name,
                 text: answer.answer_text,
             })),
     );
-    const completion =
-        members.length > 0
-            ? Math.round((submittedResponses.length / members.length) * 100)
-            : 0;
 
     return (
         <>
@@ -65,35 +110,85 @@ export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
                     )}
                 </div>
 
+                <section aria-labelledby="pulse-overview-title">
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                        <div>
+                            <h2
+                                id="pulse-overview-title"
+                                className="font-semibold"
+                            >
+                                Participation pulse
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Today compared with the current calendar week.
+                            </p>
+                        </div>
+                        <Badge variant="outline">
+                            {todayRun?.workspace?.name ?? 'Current workspace'}
+                        </Badge>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <PeriodCard
+                            period="Today"
+                            range={stats.today.label}
+                            icon={<Clock3 aria-hidden="true" />}
+                            completionRate={stats.today.completionRate}
+                            hasActivity={stats.today.hasRun}
+                            activityLabel={
+                                stats.today.hasRun
+                                    ? 'Participation'
+                                    : 'No run today'
+                            }
+                            status={stats.today.status}
+                            items={[
+                                {
+                                    label: 'Responses',
+                                    value: `${stats.today.submitted}/${stats.today.expected}`,
+                                    detail: 'received',
+                                },
+                                {
+                                    label: 'Waiting',
+                                    value: String(stats.today.pending),
+                                    detail: 'team members',
+                                },
+                                {
+                                    label: 'Blockers',
+                                    value: String(stats.today.blockers),
+                                    detail: 'reported',
+                                },
+                            ]}
+                        />
+                        <PeriodCard
+                            period="This week"
+                            range={stats.week.label}
+                            icon={<CalendarDays aria-hidden="true" />}
+                            completionRate={stats.week.completionRate}
+                            hasActivity={stats.week.expected > 0}
+                            activityLabel="Weekly participation"
+                            items={[
+                                {
+                                    label: 'Responses',
+                                    value: `${stats.week.submitted}/${stats.week.expected}`,
+                                    detail: 'received',
+                                },
+                                {
+                                    label: 'Runs',
+                                    value: String(stats.week.runs),
+                                    detail: `${stats.week.completedRuns} completed`,
+                                },
+                                {
+                                    label: 'Blockers',
+                                    value: String(stats.week.blockers),
+                                    detail: 'reported',
+                                },
+                            ]}
+                        />
+                    </div>
+                </section>
+
                 {todayRun ? (
                     <>
-                        <div className="grid gap-4 md:grid-cols-4">
-                            <Metric
-                                icon={<CheckCircle2 className="size-4" />}
-                                label="Completion"
-                                value={`${submittedResponses.length}/${members.length}`}
-                                detail={`${completion}% answered`}
-                            />
-                            <Metric
-                                icon={<Clock3 className="size-4" />}
-                                label="Pending"
-                                value={String(pendingResponses.length)}
-                                detail="Waiting for updates"
-                            />
-                            <Metric
-                                icon={<AlertTriangle className="size-4" />}
-                                label="Blockers"
-                                value={String(blockers.length)}
-                                detail="Needs attention"
-                            />
-                            <Metric
-                                icon={<MessageSquare className="size-4" />}
-                                label="Status"
-                                value={todayRun.status}
-                                detail={todayRun.workspace?.name}
-                            />
-                        </div>
-
                         <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
                             <div className="dp-panel">
                                 <div className="dp-panel-header">
@@ -102,47 +197,57 @@ export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
                                             Submitted answers
                                         </h2>
                                         <p className="text-sm text-muted-foreground">
-                                            Grouped by developer for quick review.
+                                            Grouped by developer for quick
+                                            review.
                                         </p>
                                     </div>
                                     <Badge>{todayRun.template?.name}</Badge>
                                 </div>
                                 <div>
                                     {submittedResponses.length ? (
-                                        submittedResponses.map((response: any) => (
-                                            <div
-                                                key={response.id}
-                                                className="dp-table-row grid-cols-[180px_1fr]"
-                                            >
-                                                <div>
-                                                    <div className="font-medium">
-                                                        {response.user?.name}
+                                        submittedResponses.map(
+                                            (response: any) => (
+                                                <div
+                                                    key={response.id}
+                                                    className="dp-table-row grid-cols-[180px_1fr]"
+                                                >
+                                                    <div>
+                                                        <div className="font-medium">
+                                                            {
+                                                                response.user
+                                                                    ?.name
+                                                            }
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            Submitted
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        Submitted
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {response.answers?.map(
-                                                        (answer: any) => (
-                                                            <div key={answer.id}>
-                                                                <div className="text-xs font-semibold text-muted-foreground">
-                                                                    {
-                                                                        answer
-                                                                            .question
-                                                                            ?.question_text
+                                                    <div className="space-y-2">
+                                                        {response.answers?.map(
+                                                            (answer: any) => (
+                                                                <div
+                                                                    key={
+                                                                        answer.id
                                                                     }
+                                                                >
+                                                                    <div className="text-xs font-semibold text-muted-foreground">
+                                                                        {
+                                                                            answer
+                                                                                .question
+                                                                                ?.question_text
+                                                                        }
+                                                                    </div>
+                                                                    <div className="text-sm">
+                                                                        {answer.answer_text ||
+                                                                            '-'}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-sm">
-                                                                    {answer.answer_text ||
-                                                                        '-'}
-                                                                </div>
-                                                            </div>
-                                                        ),
-                                                    )}
+                                                            ),
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))
+                                            ),
+                                        )
                                     ) : (
                                         <EmptyPanel text="No one has submitted yet." />
                                     )}
@@ -194,7 +299,7 @@ export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
                                 </SidePanel>
                                 {latestSummary && (
                                     <SidePanel title="Latest summary">
-                                        <pre className="whitespace-pre-wrap text-sm">
+                                        <pre className="text-sm whitespace-pre-wrap">
                                             {latestSummary.summary_text}
                                         </pre>
                                     </SidePanel>
@@ -223,28 +328,97 @@ export default function Dashboard({ todayRun, latestSummary }: DashboardProps) {
     );
 }
 
-function Metric({
+function PeriodCard({
     icon,
-    label,
-    value,
-    detail,
+    period,
+    range,
+    completionRate,
+    hasActivity,
+    activityLabel,
+    status,
+    items,
 }: {
     icon: React.ReactNode;
-    label: string;
-    value: string;
-    detail: string;
+    period: string;
+    range: string;
+    completionRate: number;
+    hasActivity: boolean;
+    activityLabel: string;
+    status?: string | null;
+    items: Array<{ label: string; value: string; detail: string }>;
 }) {
     return (
-        <div className="dp-panel p-4">
-            <div className="mb-3 flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-semibold tracking-[0.16em] uppercase">
-                    {label}
-                </span>
-                {icon}
-            </div>
-            <div className="text-2xl font-semibold">{value}</div>
-            <div className="text-sm text-muted-foreground">{detail}</div>
-        </div>
+        <Card className="gap-5 overflow-hidden py-5">
+            <CardHeader className="flex-row items-start justify-between gap-4 px-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground [&>svg]:size-4">
+                        {icon}
+                    </div>
+                    <div className="min-w-0">
+                        <CardTitle>{period}</CardTitle>
+                        <CardDescription>{range}</CardDescription>
+                    </div>
+                </div>
+                {status && <Badge variant="secondary">{status}</Badge>}
+            </CardHeader>
+
+            <CardContent className="px-5">
+                <div className="flex items-end justify-between gap-4">
+                    <div>
+                        <div className="text-4xl font-semibold tracking-tight tabular-nums">
+                            {hasActivity ? `${completionRate}%` : '—'}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            {activityLabel}
+                        </p>
+                    </div>
+                    {hasActivity && completionRate === 100 && (
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
+                            <CheckCircle2
+                                className="size-4"
+                                aria-hidden="true"
+                            />
+                            All caught up
+                        </div>
+                    )}
+                </div>
+
+                <div
+                    className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted"
+                    role="progressbar"
+                    aria-label={`${period} participation`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={hasActivity ? completionRate : 0}
+                >
+                    <div
+                        className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
+                        style={{
+                            width: `${hasActivity ? completionRate : 0}%`,
+                        }}
+                    />
+                </div>
+            </CardContent>
+
+            <CardFooter className="grid grid-cols-3 border-t px-5 pt-5">
+                {items.map((item) => (
+                    <div
+                        key={item.label}
+                        className="min-w-0 border-r px-3 first:pl-0 last:border-r-0 last:pr-0"
+                    >
+                        <div className="text-xs font-medium text-muted-foreground">
+                            {item.label}
+                        </div>
+                        <div className="mt-1 text-xl font-semibold tabular-nums">
+                            {item.value}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                            {item.detail}
+                        </div>
+                    </div>
+                ))}
+            </CardFooter>
+        </Card>
     );
 }
 

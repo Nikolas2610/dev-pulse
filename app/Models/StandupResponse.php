@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'user_id',
     'status',
     'submitted_at',
+    'late_summary_posted_at',
     'source',
     'external_message_id',
     'raw_json',
@@ -24,6 +25,7 @@ class StandupResponse extends Model
     {
         return [
             'submitted_at' => 'datetime',
+            'late_summary_posted_at' => 'datetime',
             'raw_json' => 'array',
         ];
     }

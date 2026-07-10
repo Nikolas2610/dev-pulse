@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { AlertTriangle, Send } from 'lucide-react';
 import { FormActions, FormField } from '@/components/forms/form-components';
@@ -12,6 +13,7 @@ export default function DiscordIntegration({
     isConfigured: boolean;
     canManageIntegration: boolean;
 }) {
+    const [activeTab, setActiveTab] = useState<'webhook' | 'usage'>('webhook');
     const { data, setData, post, processing, errors } = useForm({
         name: integration?.name ?? 'Discord',
         webhook_url: '',
@@ -35,6 +37,21 @@ export default function DiscordIntegration({
                     </Badge>
                 </div>
 
+                <div className="flex flex-wrap gap-2 border-b border-border/70 pb-3">
+                    <DiscordTab
+                        active={activeTab === 'webhook'}
+                        onClick={() => setActiveTab('webhook')}
+                    >
+                        Webhook
+                    </DiscordTab>
+                    <DiscordTab
+                        active={activeTab === 'usage'}
+                        onClick={() => setActiveTab('usage')}
+                    >
+                        Usage
+                    </DiscordTab>
+                </div>
+
                 {!isConfigured && (
                     <div className="dp-panel border-amber-300/50 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
                         <div className="flex gap-3 p-4">
@@ -52,63 +69,134 @@ export default function DiscordIntegration({
                     </div>
                 )}
 
-                <form
-                    className="dp-panel max-w-3xl"
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        post('/integrations/discord', {
-                            preserveScroll: true,
-                            onSuccess: () => setData('webhook_url', ''),
-                        });
-                    }}
-                >
-                    <div className="dp-panel-header">
-                        <div>
-                            <h2 className="font-semibold">Workspace webhook</h2>
-                            <p className="text-sm text-muted-foreground">
-                                {isConfigured
-                                    ? 'A webhook is saved for the current workspace.'
-                                    : 'Save the webhook for the current workspace.'}
-                            </p>
+                {activeTab === 'webhook' && (
+                    <form
+                        className="dp-panel max-w-3xl"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            post('/integrations/discord', {
+                                preserveScroll: true,
+                                onSuccess: () => setData('webhook_url', ''),
+                            });
+                        }}
+                    >
+                        <div className="dp-panel-header">
+                            <div>
+                                <h2 className="font-semibold">
+                                    Workspace webhook
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {isConfigured
+                                        ? 'A webhook is saved for the current workspace.'
+                                        : 'Save the webhook for the current workspace.'}
+                                </p>
+                            </div>
+                            {isConfigured && <Badge>Saved</Badge>}
                         </div>
-                        {isConfigured && <Badge>Saved</Badge>}
-                    </div>
-                    <div className="dp-panel-body space-y-4">
-                        <FormField
-                            label="Name"
-                            value={data.name}
-                            disabled={!canManageIntegration}
-                            onChange={(event) =>
-                                setData('name', event.target.value)
-                            }
-                            error={errors.name}
-                        />
-                        <FormField
-                            label="Webhook URL"
-                            type="password"
-                            value={data.webhook_url}
-                            disabled={!canManageIntegration}
-                            placeholder={
-                                isConfigured
-                                    ? 'Enter a new webhook URL to replace it'
-                                    : 'https://discord.com/api/webhooks/...'
-                            }
-                            onChange={(event) =>
-                                setData('webhook_url', event.target.value)
-                            }
-                            error={errors.webhook_url}
-                        />
-                        {canManageIntegration && (
-                            <FormActions
-                                submitLabel="Save webhook"
-                                processing={processing}
+                        <div className="dp-panel-body space-y-4">
+                            <FormField
+                                label="Name"
+                                value={data.name}
+                                disabled={!canManageIntegration}
+                                onChange={(event) =>
+                                    setData('name', event.target.value)
+                                }
+                                error={errors.name}
+                            />
+                            <FormField
+                                label="Webhook URL"
+                                type="password"
+                                value={data.webhook_url}
+                                disabled={!canManageIntegration}
+                                placeholder={
+                                    isConfigured
+                                        ? '******** saved - enter a new webhook URL to replace it'
+                                        : 'https://discord.com/api/webhooks/...'
+                                }
+                                onChange={(event) =>
+                                    setData('webhook_url', event.target.value)
+                                }
+                                error={errors.webhook_url}
+                            />
+                            {canManageIntegration && (
+                                <FormActions
+                                    submitLabel="Save webhook"
+                                    processing={processing}
+                                >
+                                    <Send className="size-4 text-muted-foreground" />
+                                </FormActions>
+                            )}
+                        </div>
+                    </form>
+                )}
+
+                {activeTab === 'usage' && (
+                    <div className="dp-panel max-w-3xl">
+                        <div className="dp-panel-header">
+                            <div>
+                                <h2 className="font-semibold">
+                                    Where Discord is used
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Choose Discord channel on a schedule to post
+                                    prompts, reminders, and summaries through
+                                    this webhook.
+                                </p>
+                            </div>
+                            <Badge
+                                variant={isConfigured ? 'default' : 'secondary'}
                             >
-                                <Send className="size-4 text-muted-foreground" />
-                            </FormActions>
-                        )}
+                                {isConfigured ? 'Ready' : 'Needs webhook'}
+                            </Badge>
+                        </div>
+                        <div className="dp-panel-body grid gap-3 text-sm md:grid-cols-3">
+                            <div className="rounded-md border p-3">
+                                <div className="font-medium">Prompts</div>
+                                <p className="mt-1 text-muted-foreground">
+                                    One channel post opens the standup.
+                                </p>
+                            </div>
+                            <div className="rounded-md border p-3">
+                                <div className="font-medium">Reminders</div>
+                                <p className="mt-1 text-muted-foreground">
+                                    Pending recipients get a follow-up link.
+                                </p>
+                            </div>
+                            <div className="rounded-md border p-3">
+                                <div className="font-medium">Summaries</div>
+                                <p className="mt-1 text-muted-foreground">
+                                    Submitted reports can post back to Discord.
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                </form>
+                )}
             </div>
         </>
+    );
+}
+
+function DiscordTab({
+    active,
+    onClick,
+    children,
+}: {
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={[
+                'rounded-md border px-3 py-1.5 text-sm font-medium transition',
+                active
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:text-foreground',
+            ].join(' ')}
+        >
+            {children}
+        </button>
     );
 }

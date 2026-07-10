@@ -16,7 +16,7 @@ type Props = {
 export default function Register({ passwordRules }: Props) {
     return (
         <>
-            <Head title="Register" />
+            <Head title="Create account" />
             <Form
                 {...store.form()}
                 resetOnSuccess={['password', 'password_confirmation']}
@@ -25,9 +25,9 @@ export default function Register({ passwordRules }: Props) {
             >
                 {({ processing, errors }) => (
                     <>
-                        <div className="grid gap-6">
+                        <div className="grid gap-5">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
+                                <Label htmlFor="name">Full name</Label>
                                 <Input
                                     id="name"
                                     type="text"
@@ -36,16 +36,13 @@ export default function Register({ passwordRules }: Props) {
                                     tabIndex={1}
                                     autoComplete="name"
                                     name="name"
-                                    placeholder="Full name"
+                                    placeholder="Ada Lovelace"
                                 />
-                                <InputError
-                                    message={errors.name}
-                                    className="mt-2"
-                                />
+                                <InputError message={errors.name} />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">Work email</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -53,7 +50,7 @@ export default function Register({ passwordRules }: Props) {
                                     tabIndex={2}
                                     autoComplete="email"
                                     name="email"
-                                    placeholder="email@example.com"
+                                    placeholder="ada@example.com"
                                 />
                                 <InputError message={errors.email} />
                             </div>
@@ -66,7 +63,7 @@ export default function Register({ passwordRules }: Props) {
                                     tabIndex={3}
                                     autoComplete="new-password"
                                     name="password"
-                                    placeholder="Password"
+                                    placeholder="Create a password"
                                     passwordrules={passwordRules}
                                 />
                                 <InputError message={errors.password} />
@@ -82,7 +79,7 @@ export default function Register({ passwordRules }: Props) {
                                     tabIndex={4}
                                     autoComplete="new-password"
                                     name="password_confirmation"
-                                    placeholder="Confirm password"
+                                    placeholder="Repeat your password"
                                     passwordrules={passwordRules}
                                 />
                                 <InputError
@@ -92,7 +89,7 @@ export default function Register({ passwordRules }: Props) {
 
                             <Button
                                 type="submit"
-                                className="mt-2 w-full"
+                                className="mt-1 w-full"
                                 tabIndex={5}
                                 data-test="register-user-button"
                             >
@@ -115,6 +112,6 @@ export default function Register({ passwordRules }: Props) {
 }
 
 Register.layout = {
-    title: 'Create an account',
-    description: 'Enter your details below to create your account',
+    title: 'Create your account',
+    description: 'Enter your details to get started with DevPulse',
 };

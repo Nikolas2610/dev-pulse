@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
 import {
     FormCheckbox,
@@ -20,10 +20,14 @@ export default function TemplatesCreate({
 }: {
     workspaces: Workspace[];
 }) {
+    const canManageOrganization =
+        usePage().props.access.capabilities.manageOrganization;
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         description: '',
-        workspace_id: null as number | null,
+        workspace_id: (canManageOrganization
+            ? null
+            : (workspaces[0]?.id ?? null)) as number | null,
         is_default: false,
         is_active: true,
         questions: defaultTemplateQuestions,
@@ -105,7 +109,9 @@ export default function TemplatesCreate({
                                 }
                                 error={errors.workspace_id}
                             >
-                                <option value="">All workspaces</option>
+                                {canManageOrganization && (
+                                    <option value="">All workspaces</option>
+                                )}
                                 {workspaces.map((workspace) => (
                                     <option
                                         key={workspace.id}

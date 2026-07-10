@@ -8,6 +8,7 @@ use App\Services\ActivityEventService;
 use App\Services\CurrentOrganization;
 use App\Services\StandupQuestionFlowService;
 use App\Services\StandupRunCompletionService;
+use App\Services\StandupSubmissionFinalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,10 @@ class StandupSubmissionController extends Controller
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $run->organization_id === $organization->id, 404);
+        abort_unless(
+            $currentOrganization->workspacesForUser($organization, $request->user())->contains('id', $run->workspace_id),
+            404,
+        );
 
         return Inertia::render('standup-runs/submit', [
             'run' => $run->load('workspace', 'template.questions'),
@@ -34,9 +39,20 @@ class StandupSubmissionController extends Controller
         ActivityEventService $events,
         StandupQuestionFlowService $questionFlow,
         StandupRunCompletionService $completion,
+        StandupSubmissionFinalizer $submissionFinalizer,
     ): RedirectResponse {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $run->organization_id === $organization->id, 404);
+        abort_unless(
+            $currentOrganization->workspacesForUser($organization, $request->user())->contains('id', $run->workspace_id),
+            404,
+        );
+
+        if (in_array($run->status, ['completed', 'cancelled'], true)) {
+            throw ValidationException::withMessages([
+                'standup_run' => __('This standup is closed.'),
+            ]);
+        }
 
         $existingResponse = $run->responses()->where('user_id', $request->user()->id)->first();
 
@@ -69,7 +85,7 @@ class StandupSubmissionController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($request, $run, $validated, $events, $visibleQuestions, $completion): void {
+        $response = DB::transaction(function () use ($request, $run, $validated, $events, $visibleQuestions, $completion): StandupResponse {
             $response = StandupResponse::firstOrNew([
                 'standup_run_id' => $run->id,
                 'user_id' => $request->user()->id,
@@ -101,7 +117,11 @@ class StandupSubmissionController extends Controller
             );
 
             $completion->completeIfAllResponsesSubmitted($run);
+
+            return $response;
         });
+
+        $submissionFinalizer->handle($response);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Standup submitted.')]);
 

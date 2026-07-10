@@ -1,0 +1,62 @@
+name: Deploy DevPulse
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy DevPulse to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          APP_BRANCH: main
+          PHP_BIN: ${{ secrets.VPS_PHP_BIN }}
+          COMPOSER_BIN: ${{ secrets.VPS_COMPOSER_BIN }}
+          NODE_BIN: ${{ secrets.VPS_NODE_BIN }}
+          NPM_BIN: ${{ secrets.VPS_NPM_BIN }}
+          SKIP_NPM_BUILD: ${{ secrets.VPS_SKIP_NPM_BUILD }}
+          PHP_FPM_RELOAD_COMMAND: ${{ secrets.VPS_PHP_FPM_RELOAD_COMMAND }}
+          QUEUE_RESTART_COMMAND: ${{ secrets.VPS_QUEUE_RESTART_COMMAND }}
+          WRITABLE_PATHS_COMMAND: ${{ secrets.VPS_WRITABLE_PATHS_COMMAND }}
+          HEALTHCHECK_URL: ${{ secrets.VPS_HEALTHCHECK_URL }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          command_timeout: 30m
+          envs: APP_DIR,APP_BRANCH,PHP_BIN,COMPOSER_BIN,NODE_BIN,NPM_BIN,SKIP_NPM_BUILD,PHP_FPM_RELOAD_COMMAND,QUEUE_RESTART_COMMAND,WRITABLE_PATHS_COMMAND,HEALTHCHECK_URL
+          script: |
+            set -euo pipefail
+
+            if [ -z "${APP_DIR:-}" ]; then
+              echo "VPS_APP_DIR secret is required."
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            git fetch --prune origin "$APP_BRANCH"
+            git checkout "$APP_BRANCH"
+            git reset --hard "origin/$APP_BRANCH"
+
+            bash scripts/deploy/vps-deploy.sh

@@ -14,6 +14,7 @@ class StandupPromptNotification extends Notification
     public function __construct(
         public readonly StandupRun $run,
         public readonly bool $reminder = false,
+        public readonly ?string $message = null,
     ) {}
 
     /**
@@ -31,7 +32,7 @@ class StandupPromptNotification extends Notification
         return (new MailMessage)
             ->subject(($this->reminder ? 'Reminder: ' : '').'Submit your standup')
             ->greeting('Hi '.$notifiable->name.',')
-            ->line(($this->reminder ? 'This is a reminder to submit' : 'Please submit').' your standup for '.$this->run->workspace->name.'.')
+            ->line($this->message ?? (($this->reminder ? 'This is a reminder to submit' : 'Please submit').' your standup for '.$this->run->workspace->name.'.'))
             ->action('Submit standup', route('standup-runs.submit', $this->run));
     }
 }

@@ -42,14 +42,16 @@ class SlackIntegrationController extends Controller
     public function storeCredentials(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization && $currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $workspace = $currentOrganization->currentWorkspaceForUser($organization, $request->user());
         abort_unless($workspace, 403);
 
+        $existingIntegration = $this->workspaceIntegration($organization->id, $workspace->id);
+
         $validated = $request->validate([
             'client_id' => ['required', 'string', 'max:255'],
-            'client_secret' => ['required', 'string', 'max:500'],
+            'client_secret' => [$existingIntegration?->client_secret ? 'nullable' : 'required', 'string', 'max:500'],
             'signing_secret' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -62,8 +64,8 @@ class SlackIntegrationController extends Controller
             [
                 'name' => 'Slack',
                 'client_id' => $validated['client_id'],
-                'client_secret' => $validated['client_secret'],
-                'signing_secret' => $validated['signing_secret'] ?: null,
+                'client_secret' => $validated['client_secret'] ?: $existingIntegration?->client_secret,
+                'signing_secret' => $validated['signing_secret'] ?: $existingIntegration?->signing_secret,
                 'is_active' => true,
             ],
         );
@@ -83,6 +85,8 @@ class SlackIntegrationController extends Controller
 
         $integration = $this->workspaceIntegration($organization->id, $workspace->id);
         $credentials = $this->oauthCredentials($integration);
+        $returnToOnboarding = $request->boolean('onboarding');
+        $request->session()->put('slack_return_to_onboarding', $returnToOnboarding);
 
         if (! filled($credentials['client_id']) || ! filled($credentials['client_secret'])) {
             Inertia::flash('toast', [
@@ -90,7 +94,9 @@ class SlackIntegrationController extends Controller
                 'message' => __('Add Slack client ID and client secret for this workspace before connecting Slack.'),
             ]);
 
-            return to_route('integrations.slack.index');
+            return $returnToOnboarding
+                ? to_route('onboarding.index', ['step' => 'integrations'])
+                : to_route('integrations.slack.index');
         }
 
         $request->session()->put('slack_oauth_state', $state = Str::random(40));
@@ -119,7 +125,7 @@ class SlackIntegrationController extends Controller
                 'message' => __('Slack did not authorize the connection.'),
             ]);
 
-            return to_route('integrations.slack.index');
+            return $this->oauthReturn($request);
         }
 
         abort_unless(
@@ -165,7 +171,14 @@ class SlackIntegrationController extends Controller
         SyncSlackUsersJob::dispatch($integration->id);
         SyncSlackChannelsJob::dispatch($integration->id);
 
-        return to_route('integrations.slack.index');
+        return $this->oauthReturn($request);
+    }
+
+    private function oauthReturn(Request $request): RedirectResponse
+    {
+        return $request->session()->pull('slack_return_to_onboarding', false)
+            ? to_route('onboarding.index', ['step' => 'integrations'])
+            : to_route('integrations.slack.index');
     }
 
     private function redirectUri(): string
@@ -224,6 +237,10 @@ class SlackIntegrationController extends Controller
         $workspace = $integration->workspace
             ?: $currentOrganization->currentWorkspaceForUser($organization, $request->user());
         abort_unless($workspace && $workspace->organization_id === $organization->id, 404);
+        abort_unless(
+            $currentOrganization->workspacesForUser($organization, $request->user())->contains('id', $workspace->id),
+            404,
+        );
 
         $validated = $request->validate([
             'integration_user_ids' => ['required', 'array', 'min:1'],
@@ -294,6 +311,8 @@ class SlackIntegrationController extends Controller
         $organization = $currentOrganization->fromRequest($request);
 
         abort_unless($organization && $integration->organization_id === $organization->id, 404);
+        $workspace = $currentOrganization->currentWorkspaceForUser($organization, $request->user());
+        abort_unless($workspace && $integration->workspace_id === $workspace->id, 404);
     }
 
     private function slackUsers(?Integration $integration)

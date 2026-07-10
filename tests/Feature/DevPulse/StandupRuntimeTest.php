@@ -541,7 +541,7 @@ class StandupRuntimeTest extends TestCase
             && $request['blocks'][1]['elements'][0]['value'] === (string) $run->id);
     }
 
-    public function test_slack_channel_open_run_creates_pending_responses_only_for_slack_linked_users(): void
+    public function test_slack_channel_open_run_tracks_linked_and_unlinked_users_for_private_reminder_fallback(): void
     {
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
         $unlinkedMember = User::factory()->create(['current_organization_id' => $organization->id]);
@@ -603,9 +603,10 @@ class StandupRuntimeTest extends TestCase
             'status' => 'pending',
             'source' => 'slack',
         ]);
-        $this->assertDatabaseMissing('standup_responses', [
+        $this->assertDatabaseHas('standup_responses', [
             'standup_run_id' => $run->id,
             'user_id' => $unlinkedMember->id,
+            'status' => 'pending',
         ]);
     }
 
@@ -1717,7 +1718,16 @@ class StandupRuntimeTest extends TestCase
                 ->component('dashboard')
                 ->has('todayRun.responses', 1)
                 ->where('todayRun.responses.0.user_id', $selectedMember->id)
-                ->where('todayRun.workspace.id', $workspace->id));
+                ->where('todayRun.workspace.id', $workspace->id)
+                ->where('stats.today.hasRun', true)
+                ->where('stats.today.submitted', 0)
+                ->where('stats.today.expected', 1)
+                ->where('stats.today.pending', 1)
+                ->where('stats.today.completionRate', 0)
+                ->where('stats.week.runs', 1)
+                ->where('stats.week.submitted', 0)
+                ->where('stats.week.expected', 1)
+                ->where('stats.week.pending', 1));
     }
 
     public function test_open_run_posts_prompt_to_discord_webhook(): void

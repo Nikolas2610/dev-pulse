@@ -25,7 +25,7 @@ class DiscordIntegrationController extends Controller
             'integration' => $integration,
             'isConfigured' => filled($integration?->webhook_url),
             'canManageIntegration' => $organization
-                ? $currentOrganization->canManageOrganization($organization, $request->user())
+                ? $currentOrganization->canManageCurrentWorkspace($organization, $request->user())
                 : false,
         ]);
     }
@@ -33,15 +33,17 @@ class DiscordIntegrationController extends Controller
     public function store(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization && $currentOrganization->canManageOrganization($organization, $request->user()), 403);
+        abort_unless($organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $workspace = $currentOrganization->currentWorkspaceForUser($organization, $request->user());
         abort_unless($workspace, 403);
 
+        $existingIntegration = $this->workspaceIntegration($organization->id, $workspace->id);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'webhook_url' => [
-                'required',
+                $existingIntegration?->webhook_url ? 'nullable' : 'required',
                 'url',
                 'max:1000',
                 'regex:/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//',
@@ -56,7 +58,7 @@ class DiscordIntegrationController extends Controller
             ],
             [
                 'name' => $validated['name'],
-                'webhook_url' => $validated['webhook_url'],
+                'webhook_url' => $validated['webhook_url'] ?: $existingIntegration?->webhook_url,
                 'is_active' => true,
             ],
         );

@@ -8,7 +8,10 @@ use Illuminate\Support\Carbon;
 
 class StandupSchedulerService
 {
-    public function __construct(private readonly ActivityEventService $events) {}
+    public function __construct(
+        private readonly ActivityEventService $events,
+        private readonly StandupTimingService $timing,
+    ) {}
 
     public function generateDueRuns(?Carbon $date = null): int
     {
@@ -38,6 +41,8 @@ class StandupSchedulerService
                 );
 
                 if ($run->wasRecentlyCreated) {
+                    $this->timing->snapshot($run, $schedule);
+
                     $this->events->record(
                         $schedule->organization,
                         ActivityEventService::STANDUP_RUN_CREATED,
@@ -47,6 +52,8 @@ class StandupSchedulerService
                     );
 
                     $created++;
+                } elseif (! $run->scheduled_open_at || ! $run->summary_due_at) {
+                    $this->timing->snapshot($run, $schedule);
                 }
             });
 

@@ -1,15 +1,21 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { BriefcaseBusiness, Plus, Trash2 } from 'lucide-react';
+import { BriefcaseBusiness, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
     FormActions,
     FormCheckbox,
     FormField,
     FormGrid,
-    InlineEditForm,
     TimezoneSelect,
 } from '@/components/forms/form-components';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    IndexDataControls,
+    IndexDataState,
+    IndexFilterSelect,
+    IndexPagination,
+} from '@/components/index-data-controls';
+import { useIndexData } from '@/hooks/use-index-data';
 import {
     Sheet,
     SheetContent,
@@ -30,17 +36,11 @@ type Workspace = {
 };
 
 type Props = {
-    workspaces: Workspace[];
+    indexEndpoint: string;
     canManageWorkspaces: boolean;
 };
 
-function WorkspaceRow({
-    workspace,
-    canManageWorkspaces,
-}: {
-    workspace: Workspace;
-    canManageWorkspaces: boolean;
-}) {
+function WorkspaceEditSheet({ workspace }: { workspace: Workspace }) {
     const { data, setData, patch, processing, errors } = useForm({
         name: workspace.name,
         slug: workspace.slug,
@@ -49,8 +49,96 @@ function WorkspaceRow({
     });
 
     return (
-        <div className="dp-table-row grid-cols-[auto_1fr] gap-4 xl:grid-cols-[auto_1fr_520px]">
-            <div className="dp-icon-tile mt-1">
+        <Sheet>
+            <SheetTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <Pencil />
+                    Edit
+                </Button>
+            </SheetTrigger>
+            <SheetContent className="w-full sm:max-w-xl">
+                <SheetHeader>
+                    <SheetTitle>{workspace.name}</SheetTitle>
+                    <SheetDescription>
+                        Update workspace naming, timezone, and availability.
+                    </SheetDescription>
+                </SheetHeader>
+                <form
+                    className="space-y-4 px-4 pb-6"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        patch(`/workspaces/${workspace.id}`, {
+                            preserveScroll: true,
+                        });
+                    }}
+                >
+                    <FormGrid>
+                        <FormField
+                            label="Name"
+                            value={data.name}
+                            onChange={(event) =>
+                                setData('name', event.target.value)
+                            }
+                            error={errors.name}
+                        />
+                        <FormField
+                            label="Slug"
+                            value={data.slug}
+                            onChange={(event) =>
+                                setData('slug', event.target.value)
+                            }
+                            error={errors.slug}
+                        />
+                    </FormGrid>
+                    <TimezoneSelect
+                        label="Timezone"
+                        value={data.timezone}
+                        onChange={(event) =>
+                            setData('timezone', event.target.value)
+                        }
+                    />
+                    <FormCheckbox
+                        label="Active workspace"
+                        checked={data.is_active}
+                        onCheckedChange={(checked) =>
+                            setData('is_active', checked)
+                        }
+                        className="w-fit"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <FormActions
+                            submitLabel="Save workspace"
+                            processing={processing}
+                        />
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() =>
+                                router.delete(`/workspaces/${workspace.id}`, {
+                                    preserveScroll: true,
+                                })
+                            }
+                        >
+                            <Trash2 />
+                            Delete workspace
+                        </Button>
+                    </div>
+                </form>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function WorkspaceRow({
+    workspace,
+    canManageWorkspaces,
+}: {
+    workspace: Workspace;
+    canManageWorkspaces: boolean;
+}) {
+    return (
+        <div className="dp-table-row grid-cols-[auto_1fr_auto] items-center gap-4">
+            <div className="dp-icon-tile">
                 <BriefcaseBusiness className="size-5" />
             </div>
             <div className="min-w-0">
@@ -76,68 +164,22 @@ function WorkspaceRow({
             </div>
 
             {canManageWorkspaces && (
-                <InlineEditForm
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        patch(`/workspaces/${workspace.id}`);
-                    }}
-                >
-                    <FormField
-                        label="Name"
-                        labelClassName="text-xs"
-                        value={data.name}
-                        onChange={(event) =>
-                            setData('name', event.target.value)
-                        }
-                        error={errors.name}
-                    />
-                    <FormField
-                        label="Slug"
-                        labelClassName="text-xs"
-                        value={data.slug}
-                        onChange={(event) =>
-                            setData('slug', event.target.value)
-                        }
-                        error={errors.slug}
-                    />
-                    <TimezoneSelect
-                        label="Timezone"
-                        labelClassName="text-xs"
-                        value={data.timezone}
-                        onChange={(event) =>
-                            setData('timezone', event.target.value)
-                        }
-                    />
-                    <FormActions submitLabel="Save" processing={processing}>
-                        <FormCheckbox
-                            label="Active"
-                            checked={data.is_active}
-                            onCheckedChange={(checked) =>
-                                setData('is_active', checked)
-                            }
-                        />
-                        <Button
-                            size="icon"
-                            type="button"
-                            variant="destructive"
-                            onClick={() =>
-                                router.delete(`/workspaces/${workspace.id}`)
-                            }
-                            aria-label={`Delete ${workspace.name}`}
-                        >
-                            <Trash2 className="size-4" />
-                        </Button>
-                    </FormActions>
-                </InlineEditForm>
+                <WorkspaceEditSheet workspace={workspace} />
             )}
         </div>
     );
 }
 
 export default function WorkspacesIndex({
-    workspaces,
+    indexEndpoint,
     canManageWorkspaces,
 }: Props) {
+    const { page, query, loading, error, updateQuery, setFilter } =
+        useIndexData<Workspace>(indexEndpoint, {
+            sort: 'name',
+            direction: 'asc',
+        });
+    const workspaces = page.data;
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         slug: '',
@@ -160,7 +202,7 @@ export default function WorkspacesIndex({
                     </div>
                     <div className="flex items-center gap-3">
                         <Badge variant="secondary">
-                            {workspaces.length} workspaces
+                            {page.total} workspaces
                         </Badge>
                         {canManageWorkspaces && (
                             <Sheet>
@@ -257,6 +299,43 @@ export default function WorkspacesIndex({
                             </p>
                         </div>
                     </div>
+                    <IndexDataControls
+                        search={query.search}
+                        onSearchChange={(search) => updateQuery({ search })}
+                        sort={query.sort}
+                        direction={query.direction}
+                        onSortChange={(sort, direction) =>
+                            updateQuery({ sort, direction })
+                        }
+                        sortOptions={[
+                            { label: 'Name A-Z', value: 'name' },
+                            {
+                                label: 'Newest first',
+                                value: 'created_at',
+                                direction: 'desc',
+                            },
+                            {
+                                label: 'Most members',
+                                value: 'users_count',
+                                direction: 'desc',
+                            },
+                            {
+                                label: 'Most templates',
+                                value: 'templates_count',
+                                direction: 'desc',
+                            },
+                        ]}
+                    >
+                        <IndexFilterSelect
+                            label="Any status"
+                            value={query.filters.active ?? ''}
+                            onChange={(value) => setFilter('active', value)}
+                            options={[
+                                { label: 'Active', value: '1' },
+                                { label: 'Inactive', value: '0' },
+                            ]}
+                        />
+                    </IndexDataControls>
                     {workspaces.map((workspace) => (
                         <WorkspaceRow
                             key={workspace.id}
@@ -264,6 +343,23 @@ export default function WorkspacesIndex({
                             canManageWorkspaces={canManageWorkspaces}
                         />
                     ))}
+                    {!workspaces.length && (
+                        <IndexDataState
+                            loading={loading}
+                            error={error}
+                            empty="No workspaces match these filters."
+                        />
+                    )}
+                    <IndexPagination
+                        currentPage={page.current_page}
+                        lastPage={page.last_page}
+                        from={page.from}
+                        to={page.to}
+                        total={page.total}
+                        perPage={query.perPage}
+                        onPageChange={(page) => updateQuery({ page })}
+                        onPerPageChange={(perPage) => updateQuery({ perPage })}
+                    />
                 </div>
             </div>
         </>

@@ -19,10 +19,7 @@ class WorkspaceController extends Controller
         $organization = $currentOrganization->fromRequest($request);
 
         return Inertia::render('workspaces/index', [
-            'workspaces' => $organization?->workspaces()
-                ->withCount('users', 'templates')
-                ->orderBy('name')
-                ->get() ?? [],
+            'indexEndpoint' => route('api.workspaces.index'),
             'canManageWorkspaces' => $organization
                 ? $currentOrganization->canManageOrganization($organization, $request->user())
                 : false,

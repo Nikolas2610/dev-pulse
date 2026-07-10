@@ -17,7 +17,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'standup_template_id',
     'run_date',
     'status',
+    'scheduled_open_at',
     'opened_at',
+    'summary_due_at',
     'summary_posted_at',
 ])]
 class StandupRun extends Model
@@ -29,7 +31,9 @@ class StandupRun extends Model
     {
         return [
             'run_date' => 'date',
+            'scheduled_open_at' => 'datetime',
             'opened_at' => 'datetime',
+            'summary_due_at' => 'datetime',
             'summary_posted_at' => 'datetime',
         ];
     }
@@ -62,6 +66,11 @@ class StandupRun extends Model
     public function responses(): HasMany
     {
         return $this->hasMany(StandupResponse::class);
+    }
+
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(StandupRunReminder::class);
     }
 
     public function summary(): HasOne

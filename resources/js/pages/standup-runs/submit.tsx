@@ -1,5 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Send } from 'lucide-react';
+import {
+    FormMultiSelect,
+    FormSelect,
+} from '@/components/forms/form-components';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -17,7 +21,9 @@ export default function StandupSubmit({ run }: { run: any }) {
         }
 
         const actual = String(
-            (data.answers as Record<string, string>)[question.depends_on_question_id] ?? '',
+            (data.answers as Record<string, string>)[
+                question.depends_on_question_id
+            ] ?? '',
         )
             .trim()
             .toLowerCase();
@@ -35,23 +41,18 @@ export default function StandupSubmit({ run }: { run: any }) {
         });
     };
 
-    const setMultiAnswer = (questionId: number, options: HTMLCollectionOf<HTMLOptionElement>) => {
-        setAnswer(
-            questionId,
-            Array.from(options)
-                .filter((option) => option.selected)
-                .map((option) => option.value)
-                .join(', '),
-        );
-    };
-
     return (
         <>
             <Head title="Submit standup" />
             <div className="dp-page max-w-4xl">
                 <div className="dp-page-header">
                     <div>
-                        <Button asChild variant="ghost" size="sm" className="-ml-2">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="-ml-2"
+                        >
                             <Link href={`/standups/${run.id}`}>
                                 <ArrowLeft />
                                 Run detail
@@ -60,8 +61,8 @@ export default function StandupSubmit({ run }: { run: any }) {
                         <div className="dp-kicker mt-3">Your update</div>
                         <h1 className="dp-title">{run.template?.name}</h1>
                         <p className="dp-subtitle">
-                            {run.workspace?.name} · answer once, then your update
-                            appears on the dashboard and summary.
+                            {run.workspace?.name} · answer once, then your
+                            update appears on the dashboard and summary.
                         </p>
                     </div>
                 </div>
@@ -91,97 +92,142 @@ export default function StandupSubmit({ run }: { run: any }) {
                                 {formErrors.standup_run}
                             </p>
                         )}
-                        {visibleQuestions.map((question: any, index: number) => (
-                            <div key={question.id} className="space-y-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="rounded bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
-                                        {index + 1}
+                        {visibleQuestions.map(
+                            (question: any, index: number) => (
+                                <div key={question.id} className="space-y-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="rounded bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                                            {index + 1}
+                                        </div>
+                                        <Label>{question.question_text}</Label>
                                     </div>
-                                    <Label>{question.question_text}</Label>
-                                </div>
-                                {question.answer_type === 'boolean' ? (
-                                    <select
-                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                        value={(data.answers as any)[question.id]}
-                                        onChange={(event) =>
-                                            setAnswer(question.id, event.target.value)
-                                        }
-                                    >
-                                        <option value="">Choose an answer</option>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                ) : question.answer_type === 'select' ? (
-                                    <select
-                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                        value={(data.answers as any)[question.id]}
-                                        onChange={(event) =>
-                                            setAnswer(question.id, event.target.value)
-                                        }
-                                    >
-                                        <option value="">Choose an answer</option>
-                                        {(question.options_json ?? []).map(
-                                            (option: string) => (
-                                                <option key={option} value={option}>
-                                                    {option}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                ) : question.answer_type === 'multi_select' ? (
-                                    <select
-                                        multiple
-                                        className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                        value={String(
-                                            (data.answers as any)[question.id] ?? '',
-                                        )
-                                            .split(', ')
-                                            .filter(Boolean)}
-                                        onChange={(event) =>
-                                            setMultiAnswer(
-                                                question.id,
-                                                event.target.selectedOptions,
+                                    {question.answer_type === 'boolean' ? (
+                                        <FormSelect
+                                            label={question.question_text}
+                                            labelClassName="sr-only"
+                                            value={
+                                                (data.answers as any)[
+                                                    question.id
+                                                ]
+                                            }
+                                            onChange={(event) =>
+                                                setAnswer(
+                                                    question.id,
+                                                    event.target.value,
+                                                )
+                                            }
+                                            options={[
+                                                {
+                                                    label: 'Choose an answer',
+                                                    value: '',
+                                                },
+                                                { label: 'Yes', value: 'Yes' },
+                                                { label: 'No', value: 'No' },
+                                            ]}
+                                        />
+                                    ) : question.answer_type === 'select' ? (
+                                        <FormSelect
+                                            label={question.question_text}
+                                            labelClassName="sr-only"
+                                            value={
+                                                (data.answers as any)[
+                                                    question.id
+                                                ]
+                                            }
+                                            onChange={(event) =>
+                                                setAnswer(
+                                                    question.id,
+                                                    event.target.value,
+                                                )
+                                            }
+                                            options={[
+                                                {
+                                                    label: 'Choose an answer',
+                                                    value: '',
+                                                },
+                                                ...(
+                                                    question.options_json ?? []
+                                                ).map((option: string) => ({
+                                                    label: option,
+                                                    value: option,
+                                                })),
+                                            ]}
+                                        />
+                                    ) : question.answer_type ===
+                                      'multi_select' ? (
+                                        <FormMultiSelect
+                                            label={question.question_text}
+                                            labelClassName="sr-only"
+                                            value={String(
+                                                (data.answers as any)[
+                                                    question.id
+                                                ] ?? '',
                                             )
-                                        }
-                                    >
-                                        {(question.options_json ?? []).map(
-                                            (option: string) => (
-                                                <option key={option} value={option}>
-                                                    {option}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                ) : question.answer_type === 'text' ||
-                                  question.answer_type === 'number' ? (
-                                    <input
-                                        type={
-                                            question.answer_type === 'number'
-                                                ? 'number'
-                                                : 'text'
-                                        }
-                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                        value={(data.answers as any)[question.id]}
-                                        onChange={(event) =>
-                                            setAnswer(question.id, event.target.value)
-                                        }
-                                    />
-                                ) : (
-                                    <textarea
-                                        className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                        value={(data.answers as any)[question.id]}
-                                        onChange={(event) =>
-                                            setAnswer(question.id, event.target.value)
-                                        }
-                                    />
-                                )}
-                                {formErrors[`answers.${question.id}`] && (
-                                    <p className="text-sm text-destructive">
-                                        {formErrors[`answers.${question.id}`]}
-                                    </p>
-                                )}
-                            </div>
-                        ))}
+                                                .split(', ')
+                                                .filter(Boolean)}
+                                            onValueChange={(options) =>
+                                                setAnswer(
+                                                    question.id,
+                                                    options.join(', '),
+                                                )
+                                            }
+                                            options={(
+                                                question.options_json ?? []
+                                            ).map((option: string) => ({
+                                                label: option,
+                                                value: option,
+                                            }))}
+                                        />
+                                    ) : question.answer_type === 'text' ||
+                                      question.answer_type === 'number' ? (
+                                        <input
+                                            type={
+                                                question.answer_type ===
+                                                'number'
+                                                    ? 'number'
+                                                    : 'text'
+                                            }
+                                            className="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                            value={
+                                                (data.answers as any)[
+                                                    question.id
+                                                ]
+                                            }
+                                            onChange={(event) =>
+                                                setAnswer(
+                                                    question.id,
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    ) : (
+                                        <textarea
+                                            className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                            value={
+                                                (data.answers as any)[
+                                                    question.id
+                                                ]
+                                            }
+                                            onChange={(event) =>
+                                                setAnswer(
+                                                    question.id,
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    )}
+                                    {formErrors[`answers.${question.id}`] && (
+                                        <p className="text-sm text-destructive">
+                                            {
+                                                formErrors[
+                                                    `answers.${question.id}`
+                                                ]
+                                            }
+                                        </p>
+                                    )}
+                                </div>
+                            ),
+                        )}
                     </div>
                 </form>
             </div>

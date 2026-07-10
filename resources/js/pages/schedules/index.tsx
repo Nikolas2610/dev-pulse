@@ -35,34 +35,52 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { RecipientPicker } from '@/pages/schedules/recipient-picker';
+import {
+    defaultReminderTemplate,
+    ReminderSettings,
+} from '@/pages/schedules/reminder-settings';
+import {
+    IndexDataControls,
+    IndexDataState,
+    IndexFilterSelect,
+    IndexPagination,
+} from '@/components/index-data-controls';
+import { useIndexData } from '@/hooks/use-index-data';
 
 export default function SchedulesIndex({
-    schedules,
+    indexEndpoint,
     workspaces,
     templates,
     integrations,
     members,
     canManageSchedules,
 }: {
-    schedules: any[];
+    indexEndpoint: string;
     workspaces: any[];
     templates: any[];
     integrations: any[];
     members: any[];
     canManageSchedules: boolean;
 }) {
+    const { page, query, loading, error, updateQuery, setFilter } =
+        useIndexData<any>(indexEndpoint, {
+            sort: 'created_at',
+            direction: 'desc',
+        });
+    const schedules = page.data;
     const { data, setData, post, processing, errors } = useForm({
         name: 'Daily Focus',
         workspace_id: workspaces[0]?.id ?? '',
         standup_template_id: templates[0]?.id ?? '',
         timezone: 'Asia/Nicosia',
         time_of_day: '08:30',
+        end_time_of_day: '10:00',
         days_of_week: [1, 2, 3, 4, 5],
         recipient_mode: 'all_workspace_members',
         delivery_method: 'email',
         participant_user_ids: [] as number[],
-        reminder_minutes_after: 15,
-        summary_minutes_after: 30,
+        reminder_minutes_before_end: [60, 30, 15, 5] as number[],
+        reminder_message_template: defaultReminderTemplate,
         target_integration_id: null as number | null,
         prompt_channel_id: null as number | null,
         target_channel_id: null as number | null,
@@ -192,16 +210,7 @@ export default function SchedulesIndex({
                                         participantUserIds={
                                             data.participant_user_ids
                                         }
-                                        requiresSlackRecipients={
-                                            data.delivery_method ===
-                                            'slack_channel'
-                                        }
-                                        slackIntegrationId={
-                                            data.delivery_method ===
-                                            'slack_channel'
-                                                ? data.target_integration_id
-                                                : null
-                                        }
+                                        requiresSlackRecipients={false}
                                         error={errors.participant_user_ids}
                                         onRecipientModeChange={(mode) =>
                                             setData((current) => ({
@@ -251,7 +260,7 @@ export default function SchedulesIndex({
                                     </FormSelect>
                                     <FormGrid>
                                         <FormField
-                                            label="Time"
+                                            label="Start time"
                                             type="time"
                                             value={data.time_of_day}
                                             onChange={(event) =>
@@ -261,6 +270,20 @@ export default function SchedulesIndex({
                                                 )
                                             }
                                         />
+                                        <FormField
+                                            label="End / summary time"
+                                            type="time"
+                                            value={data.end_time_of_day}
+                                            onChange={(event) =>
+                                                setData(
+                                                    'end_time_of_day',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            error={errors.end_time_of_day}
+                                        />
+                                    </FormGrid>
+                                    <FormGrid>
                                         <TimezoneSelect
                                             label="Timezone"
                                             value={data.timezone}
@@ -272,6 +295,33 @@ export default function SchedulesIndex({
                                             }
                                         />
                                     </FormGrid>
+                                    <ReminderSettings
+                                        offsets={
+                                            data.reminder_minutes_before_end
+                                        }
+                                        template={
+                                            data.reminder_message_template
+                                        }
+                                        endTime={data.end_time_of_day}
+                                        offsetsError={
+                                            errors.reminder_minutes_before_end
+                                        }
+                                        templateError={
+                                            errors.reminder_message_template
+                                        }
+                                        onOffsetsChange={(offsets) =>
+                                            setData(
+                                                'reminder_minutes_before_end',
+                                                offsets,
+                                            )
+                                        }
+                                        onTemplateChange={(template) =>
+                                            setData(
+                                                'reminder_message_template',
+                                                template,
+                                            )
+                                        }
+                                    />
                                     {deliveryRequiresIntegration && (
                                         <FormGrid>
                                             <FormSelect
@@ -417,10 +467,57 @@ export default function SchedulesIndex({
                                     : 'Schedules are read-only for your role.'}
                             </p>
                         </div>
-                        <Badge variant="secondary">
-                            {schedules.length} total
-                        </Badge>
+                        <Badge variant="secondary">{page.total} total</Badge>
                     </div>
+                    <IndexDataControls
+                        search={query.search}
+                        onSearchChange={(search) => updateQuery({ search })}
+                        sort={query.sort}
+                        direction={query.direction}
+                        onSortChange={(sort, direction) =>
+                            updateQuery({ sort, direction })
+                        }
+                        sortOptions={[
+                            {
+                                label: 'Newest first',
+                                value: 'created_at',
+                                direction: 'desc',
+                            },
+                            { label: 'Name A-Z', value: 'name' },
+                            { label: 'Earliest time', value: 'time_of_day' },
+                        ]}
+                    >
+                        <IndexFilterSelect
+                            label="All workspaces"
+                            value={query.filters.workspace_id ?? ''}
+                            onChange={(value) =>
+                                setFilter('workspace_id', value)
+                            }
+                            options={workspaces.map((workspace) => ({
+                                label: workspace.name,
+                                value: workspace.id,
+                            }))}
+                        />
+                        <IndexFilterSelect
+                            label="All delivery methods"
+                            value={query.filters.delivery_method ?? ''}
+                            onChange={(value) =>
+                                setFilter('delivery_method', value)
+                            }
+                            options={Object.entries(deliveryMethodLabels).map(
+                                ([value, label]) => ({ label, value }),
+                            )}
+                        />
+                        <IndexFilterSelect
+                            label="Any status"
+                            value={query.filters.active ?? ''}
+                            onChange={(value) => setFilter('active', value)}
+                            options={[
+                                { label: 'Active', value: '1' },
+                                { label: 'Inactive', value: '0' },
+                            ]}
+                        />
+                    </IndexDataControls>
                     {schedules.map((schedule) => {
                         const summaryDisabledReason =
                             summarySendDisabledReason(schedule);
@@ -443,6 +540,11 @@ export default function SchedulesIndex({
                                         {String(schedule.time_of_day).slice(
                                             0,
                                             5,
+                                        )}{' '}
+                                        –{' '}
+                                        {String(schedule.end_time_of_day).slice(
+                                            0,
+                                            5,
                                         )}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
@@ -456,6 +558,14 @@ export default function SchedulesIndex({
                                         {deliveryMethodLabels[
                                             schedule.delivery_method ?? 'email'
                                         ] ?? 'Email'}
+                                        {' · '}
+                                        {
+                                            (
+                                                schedule.reminder_minutes_before_end ??
+                                                []
+                                            ).length
+                                        }{' '}
+                                        reminders
                                     </div>
                                     <div className="mt-1">
                                         <Badge
@@ -601,6 +711,23 @@ export default function SchedulesIndex({
                             </div>
                         );
                     })}
+                    {!schedules.length && (
+                        <IndexDataState
+                            loading={loading}
+                            error={error}
+                            empty="No schedules match these filters."
+                        />
+                    )}
+                    <IndexPagination
+                        currentPage={page.current_page}
+                        lastPage={page.last_page}
+                        from={page.from}
+                        to={page.to}
+                        total={page.total}
+                        perPage={query.perPage}
+                        onPageChange={(page) => updateQuery({ page })}
+                        onPerPageChange={(perPage) => updateQuery({ perPage })}
+                    />
                 </div>
             </div>
         </>

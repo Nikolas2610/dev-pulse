@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Notifications\TeamInvitationNotification;
 use App\Services\CurrentOrganization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +21,10 @@ class TeamMemberController extends Controller
         $organization = $currentOrganization->fromRequest($request);
 
         return Inertia::render('team-members/index', [
-            'members' => $organization?->users()->with('workspaces')->orderBy('name')->get() ?? [],
-            'workspaces' => $organization?->workspaces()->orderBy('name')->get(['id', 'name']) ?? [],
+            'indexEndpoint' => route('api.team-members.index'),
+            'workspaces' => $organization
+                ? $currentOrganization->workspacesForUser($organization, $request->user())->map->only(['id', 'name'])->values()
+                : [],
             'canManageMembers' => $organization
                 ? $currentOrganization->canManageOrganization($organization, $request->user())
                 : false,
@@ -31,7 +34,11 @@ class TeamMemberController extends Controller
     public function store(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+
+        if (! $organization) {
+            abort(403);
+        }
+
         abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
 
         $validated = $request->validate([
@@ -42,7 +49,10 @@ class TeamMemberController extends Controller
             'workspace_role' => ['required', 'string', 'in:manager,member'],
         ]);
 
-        $workspace = $organization->workspaces()->whereKey($validated['workspace_id'])->firstOrFail();
+        $workspace = Workspace::query()
+            ->where('organization_id', $organization->id)
+            ->whereKey($validated['workspace_id'])
+            ->firstOrFail();
 
         $user = User::firstOrCreate(
             ['email' => Str::lower($validated['email'])],
@@ -72,7 +82,17 @@ class TeamMemberController extends Controller
             $user->id => ['role' => $validated['workspace_role'], 'is_active' => true],
         ]);
 
-        Password::sendResetLink(['email' => $user->email]);
+        $token = $user->wasRecentlyCreated
+            ? Password::createToken($user)
+            : null;
+
+        $user->notify(new TeamInvitationNotification(
+            organization: $organization,
+            workspace: $workspace,
+            invitedBy: $request->user(),
+            role: $validated['organization_role'],
+            token: $token,
+        ));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Team member invited.')]);
 
@@ -94,7 +114,10 @@ class TeamMemberController extends Controller
         $organization->users()->updateExistingPivot($user->id, ['role' => $validated['organization_role']]);
 
         if (! empty($validated['workspace_id'])) {
-            $workspace = $organization->workspaces()->whereKey($validated['workspace_id'])->firstOrFail();
+            $workspace = Workspace::query()
+                ->where('organization_id', $organization->id)
+                ->whereKey($validated['workspace_id'])
+                ->firstOrFail();
             $workspace->users()->syncWithoutDetaching([
                 $user->id => ['role' => $validated['workspace_role'] ?? 'member', 'is_active' => true],
             ]);

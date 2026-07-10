@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureOnboardingComplete;
+use App\Http\Middleware\EnsureRoleCapability;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -15,12 +17,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'role-capability' => EnsureRoleCapability::class,
+        ]);
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
         $middleware->validateCsrfTokens(except: ['slack/interactions']);
 
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
+            EnsureOnboardingComplete::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
     })
