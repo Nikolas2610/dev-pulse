@@ -3,6 +3,7 @@ import {
     BookOpen,
     BriefcaseBusiness,
     CalendarClock,
+    ClipboardList,
     LayoutGrid,
     MessageSquare,
     ChartNoAxesCombined,
@@ -68,6 +69,12 @@ const mainNavItems: RoleNavItem[] = [
         title: 'Team Members',
         href: '/team-members',
         icon: Users,
+        capability: 'viewTeam',
+    },
+    {
+        title: 'Team Standups',
+        href: '/team-standups',
+        icon: ClipboardList,
         capability: 'viewTeam',
     },
     {

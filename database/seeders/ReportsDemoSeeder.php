@@ -15,6 +15,8 @@ use Illuminate\Support\Carbon;
 
 class ReportsDemoSeeder extends Seeder
 {
+    private const MANAGER_INDEXES = [0, 6, 12];
+
     public function run(): void
     {
         mt_srand(20260711);
@@ -26,12 +28,15 @@ class ReportsDemoSeeder extends Seeder
 
         $people = ['Aisha Rahman', 'Ben Carter', 'Camila Torres', 'Dario Novak', 'Elena Rossi', 'Felix Wong', 'Grace Kim', 'Hugo Silva', 'Iris Jensen', 'Jon Bell', 'Kira Ahmed', 'Luca Moretti', 'Mina Park', 'Noah Williams', 'Priya Shah', 'Quinn Taylor', 'Rosa Alvarez', 'Sam Okafor'];
         $users = collect($people)->map(function (string $name, int $index) use ($organization, $workspace) {
+            $workspaceRole = in_array($index, self::MANAGER_INDEXES, true)
+                ? 'manager'
+                : 'member';
             $user = User::updateOrCreate(['email' => sprintf('reports-demo-%02d@example.com', $index + 1)], [
                 'name' => $name, 'password' => 'password', 'email_verified_at' => now(), 'current_organization_id' => $organization->id,
                 'current_workspace_id' => $workspace->id, 'timezone' => $workspace->timezone, 'is_active' => true, 'onboarding_required' => false,
             ]);
             $organization->users()->syncWithoutDetaching([$user->id => ['role' => 'member']]);
-            $workspace->users()->syncWithoutDetaching([$user->id => ['role' => 'member', 'is_active' => true]]);
+            $workspace->users()->syncWithoutDetaching([$user->id => ['role' => $workspaceRole, 'is_active' => true]]);
 
             return $user;
         });

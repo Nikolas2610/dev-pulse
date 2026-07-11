@@ -53,6 +53,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
+            'developmentLogin' => app()->environment('local'),
             'recentLoginUsers' => $this->recentLoginUsers(),
             'status' => $request->session()->get('status'),
         ]));
@@ -81,22 +82,36 @@ class FortifyServiceProvider extends ServiceProvider
     }
 
     /**
-     * Get the last five created users for login shortcuts.
+     * Get recent users for login shortcuts.
      *
-     * @return array<int, array{id: int, name: string, email: string}>
+     * @return array<int, array{id: int, name: string, email: string, role: string}>
      */
     private function recentLoginUsers(): array
     {
         return User::query()
+            ->with(['organizations:id', 'workspaces:id'])
             ->latest('created_at')
             ->latest('id')
-            ->limit(5)
-            ->get(['id', 'name', 'email'])
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ])
+            ->limit(app()->environment('local') ? 50 : 5)
+            ->get(['id', 'name', 'email', 'current_organization_id', 'current_workspace_id'])
+            ->map(function (User $user) {
+                $organizationRole = $user->organizations
+                    ->firstWhere('id', $user->current_organization_id)
+                    ?->pivot?->role;
+                $workspaceRole = $user->workspaces
+                    ->firstWhere('id', $user->current_workspace_id)
+                    ?->pivot?->role;
+                $role = in_array($organizationRole, ['owner', 'admin'], true)
+                    ? $organizationRole
+                    : ($workspaceRole === 'manager' || $organizationRole === 'manager' ? 'manager' : 'member');
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $role,
+                ];
+            })
             ->all();
     }
 

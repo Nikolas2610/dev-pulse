@@ -94,6 +94,7 @@ class DashboardController extends Controller
         $responses = StandupResponse::query()->whereIn('standup_run_id', $runIds);
         $expected = (clone $responses)->count();
         $submitted = (clone $responses)->where('status', 'submitted')->count();
+        $skipped = (clone $responses)->where('status', 'skipped')->count();
         $pending = (clone $responses)->where('status', 'pending')->count();
         $blockers = StandupAnswer::query()
             ->whereHas('response', fn ($query) => $query
@@ -111,7 +112,7 @@ class DashboardController extends Controller
             'pending' => $pending,
             'blockers' => $blockers,
             'completionRate' => $expected > 0
-                ? (int) round(($submitted / $expected) * 100)
+                ? (int) round((($submitted + $skipped) / $expected) * 100)
                 : 0,
         ];
     }

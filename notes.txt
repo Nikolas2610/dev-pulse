@@ -1,0 +1,3 @@
+would be a nice idea, if there is a way to say that these members has this guy as manager. Manager can has manager as his manager, like a deep, we need a refactor about this. 
+
+The idea as a team leader i want to see the standups for my team. Maybe it's better to have teams or departments??

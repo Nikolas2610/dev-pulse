@@ -21,6 +21,9 @@ export default function StandupsShow({
     const pending = runResponses.filter(
         (response: any) => response.status === 'pending',
     );
+    const skipped = runResponses.filter(
+        (response: any) => response.status === 'skipped',
+    );
     const currentUserPendingResponse = pending.find(
         (response: any) => response.user?.id === auth.user?.id,
     );
@@ -49,6 +52,9 @@ export default function StandupsShow({
                             {run.workspace?.name} -{' '}
                             {AppDateFormatter.friendlyDate(run.run_date)} -{' '}
                             {responses.length}/{recipientCount} submitted
+                            {skipped.length
+                                ? `, ${skipped.length} skipped`
+                                : ''}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -115,29 +121,52 @@ export default function StandupsShow({
                         )}
                     </div>
 
-                    <div className="dp-panel h-fit">
-                        <div className="border-b px-4 py-3 font-semibold">
-                            Pending members
+                    <div className="space-y-5">
+                        <div className="dp-panel h-fit">
+                            <div className="border-b px-4 py-3 font-semibold">
+                                Pending members
+                            </div>
+                            <div className="p-4">
+                                {pending.length ? (
+                                    pending.map((response: any) => (
+                                        <div
+                                            key={response.id}
+                                            className="flex items-center justify-between border-b py-2 last:border-0"
+                                        >
+                                            <span>{response.user?.name}</span>
+                                            <Badge variant="secondary">
+                                                Pending
+                                            </Badge>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        Everyone has responded.
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                        <div className="p-4">
-                            {pending.length ? (
-                                pending.map((response: any) => (
-                                    <div
-                                        key={response.id}
-                                        className="flex items-center justify-between border-b py-2 last:border-0"
-                                    >
-                                        <span>{response.user?.name}</span>
-                                        <Badge variant="secondary">
-                                            Pending
-                                        </Badge>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">
-                                    Everyone has responded.
-                                </p>
-                            )}
-                        </div>
+
+                        {skipped.length > 0 && (
+                            <div className="dp-panel h-fit">
+                                <div className="border-b px-4 py-3 font-semibold">
+                                    Skipped members
+                                </div>
+                                <div className="p-4">
+                                    {skipped.map((response: any) => (
+                                        <div
+                                            key={response.id}
+                                            className="flex items-center justify-between border-b py-2 last:border-0"
+                                        >
+                                            <span>{response.user?.name}</span>
+                                            <Badge variant="outline">
+                                                Skipped
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
