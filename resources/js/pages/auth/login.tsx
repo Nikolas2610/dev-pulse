@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -19,9 +20,37 @@ import PasskeyVerify from '@/components/passkey-verify';
 type Props = {
     status?: string;
     canResetPassword: boolean;
+    recentLoginUsers: RecentLoginUser[];
 };
 
-export default function Login({ status, canResetPassword }: Props) {
+type RecentLoginUser = {
+    id: number;
+    name: string;
+    email: string;
+};
+
+const defaultDevelopmentPassword = 'password';
+
+export default function Login({
+    status,
+    canResetPassword,
+    recentLoginUsers,
+}: Props) {
+    const emailInput = useRef<HTMLInputElement>(null);
+    const passwordInput = useRef<HTMLInputElement>(null);
+
+    const fillDevelopmentCredentials = (email: string) => {
+        if (emailInput.current) {
+            emailInput.current.value = email;
+        }
+
+        if (passwordInput.current) {
+            passwordInput.current.value = defaultDevelopmentPassword;
+        }
+
+        passwordInput.current?.focus();
+    };
+
     return (
         <>
             <Head title="Log in" />
@@ -44,6 +73,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     id="email"
                                     type="email"
                                     name="email"
+                                    ref={emailInput}
                                     required
                                     autoFocus
                                     tabIndex={1}
@@ -69,6 +99,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                 <PasswordInput
                                     id="password"
                                     name="password"
+                                    ref={passwordInput}
                                     required
                                     tabIndex={2}
                                     autoComplete="current-password"
@@ -97,6 +128,35 @@ export default function Login({ status, canResetPassword }: Props) {
                                 Log in
                             </Button>
                         </div>
+
+                        {recentLoginUsers.length > 0 && (
+                            <div className="grid gap-2 rounded-md border border-dashed p-3">
+                                <div className="text-xs font-medium text-muted-foreground uppercase">
+                                    Last 5 created users
+                                </div>
+                                <div className="grid gap-1">
+                                    {recentLoginUsers.map((user) => (
+                                        <button
+                                            key={user.id}
+                                            type="button"
+                                            className="grid rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                                            onClick={() =>
+                                                fillDevelopmentCredentials(
+                                                    user.email,
+                                                )
+                                            }
+                                        >
+                                            <span className="font-medium">
+                                                {user.name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {user.email}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* @chisel-registration */}
                         <div className="text-center text-sm text-muted-foreground">

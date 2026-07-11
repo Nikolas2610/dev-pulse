@@ -8,11 +8,31 @@ import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
+    const vitePort = Number(env.VITE_PORT ?? 5175);
+    const appUrl = new URL(env.APP_URL ?? 'http://localhost');
+    const viteOrigin =
+        env.VITE_ORIGIN ?? `${appUrl.protocol}//${appUrl.hostname}:${vitePort}`;
+    const serverPort = Number(env.SERVER_PORT ?? appUrl.port ?? 8003);
+    const corsOrigins = env.VITE_CORS_ORIGINS
+        ? env.VITE_CORS_ORIGINS.split(',').map((origin) => origin.trim())
+        : [
+              appUrl.origin,
+              `http://localhost:${serverPort}`,
+              `http://127.0.0.1:${serverPort}`,
+          ];
 
     return {
         server: {
-            host: 'localhost',
-            port: Number(env.VITE_PORT ?? 5175),
+            host: env.VITE_HOST ?? '0.0.0.0',
+            port: vitePort,
+            origin: viteOrigin,
+            cors: {
+                origin: corsOrigins,
+            },
+            hmr: {
+                host: appUrl.hostname,
+                port: vitePort,
+            },
         },
         plugins: [
             laravel({

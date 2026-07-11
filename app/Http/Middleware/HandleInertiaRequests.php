@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\CurrentOrganization;
+use App\Services\RoleAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,11 +37,56 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $currentOrganization = app(CurrentOrganization::class);
+        $roleAccess = app(RoleAccess::class);
+        $organization = $currentOrganization->fromRequest($request);
+        $user = $request->user();
+        $availableWorkspaces = $organization && $user
+            ? $currentOrganization->workspacesForUser($organization, $user)
+            : collect();
+        $currentWorkspace = $organization && $user
+            ? $currentOrganization->currentWorkspaceForUser($organization, $user)
+            : null;
+
+        $appName = config('app.name') === 'Laravel'
+            ? 'DevPulse'
+            : config('app.name');
+
         return [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name' => $appName,
             'auth' => [
                 'user' => $request->user(),
+            ],
+            'organizations' => $user
+                ? $user->organizations()->orderBy('name')->get(['organizations.id', 'name', 'slug', 'timezone'])
+                : [],
+            'currentOrganization' => $organization ? [
+                'id' => $organization->id,
+                'name' => $organization->name,
+                'slug' => $organization->slug,
+                'timezone' => $organization->timezone,
+            ] : null,
+            'currentWorkspace' => $currentWorkspace ? [
+                'id' => $currentWorkspace->id,
+                'name' => $currentWorkspace->name,
+                'slug' => $currentWorkspace->slug,
+                'timezone' => $currentWorkspace->timezone,
+            ] : null,
+            'workspaces' => $availableWorkspaces->map(fn ($workspace) => [
+                'id' => $workspace->id,
+                'name' => $workspace->name,
+                'slug' => $workspace->slug,
+                'timezone' => $workspace->timezone,
+            ])->values(),
+            'access' => [
+                'organizationRole' => $organization && $user
+                    ? $roleAccess->organizationRole($organization, $user)
+                    : null,
+                'workspaceRole' => $currentWorkspace
+                    ? $roleAccess->workspaceRole($currentWorkspace, $user)
+                    : null,
+                'capabilities' => $roleAccess->capabilities($organization, $currentWorkspace, $user),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
