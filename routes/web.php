@@ -7,6 +7,7 @@ use App\Http\Controllers\DiscordIntegrationController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OrganizationSettingsController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SlackIntegrationController;
 use App\Http\Controllers\SlackInteractionController;
@@ -48,6 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('context', [ContextController::class, 'update'])->name('context.update');
     Route::middleware('role-capability:viewDashboard')->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
+        Route::get('reports', ReportsController::class)->name('reports.index');
     });
     Route::middleware('role-capability:viewStandups')->group(function () {
         Route::get('standups', [StandupRunController::class, 'index'])->name('standups.index');

@@ -1,9 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Trash2 } from 'lucide-react';
-import {
-    FormCheckbox,
-    FormField,
-} from '@/components/forms/form-components';
+import { FormCheckbox, FormField } from '@/components/forms/form-components';
 import { Button } from '@/components/ui/button';
 import { QuestionEditor } from '@/pages/templates/question-editor';
 import type { TemplateQuestionForm } from '@/pages/templates/question-editor';
@@ -11,31 +8,32 @@ import type { TemplateQuestionForm } from '@/pages/templates/question-editor';
 export default function TemplatesEdit({ template }: { template: any }) {
     const templateQuestions = template.questions ?? [];
     const questionIndexById = Object.fromEntries(
-        templateQuestions.map((question: any, index: number) => [question.id, index]),
+        templateQuestions.map((question: any, index: number) => [
+            question.id,
+            index,
+        ]),
     );
     const { data, setData, patch, processing } = useForm({
         name: template.name,
         description: template.description ?? '',
         is_active: template.is_active,
-        questions: templateQuestions.map(
-            (question: any, index: number) => ({
-                id: question.id,
-                question_text: question.question_text,
-                question_key: question.question_key ?? '',
-                answer_type: question.answer_type ?? 'textarea',
-                options_json: question.options_json ?? null,
-                depends_on_question_id: question.depends_on_question_id ?? null,
-                depends_on_question_index:
-                    question.depends_on_question_id &&
-                    questionIndexById[question.depends_on_question_id] !== undefined
-                        ? questionIndexById[question.depends_on_question_id]
-                        : null,
-                depends_on_operator: question.depends_on_operator ?? null,
-                depends_on_value: question.depends_on_value ?? '',
-                is_required: Boolean(question.is_required),
-                sort_order: question.sort_order ?? index + 1,
-            }),
-        ),
+        questions: templateQuestions.map((question: any, index: number) => ({
+            id: question.id,
+            question_text: question.question_text,
+            question_key: question.question_key ?? '',
+            answer_type: question.answer_type ?? 'textarea',
+            options_json: question.options_json ?? null,
+            depends_on_question_id: question.depends_on_question_id ?? null,
+            depends_on_question_index:
+                question.depends_on_question_id &&
+                questionIndexById[question.depends_on_question_id] !== undefined
+                    ? questionIndexById[question.depends_on_question_id]
+                    : null,
+            depends_on_operator: question.depends_on_operator ?? null,
+            depends_on_value: question.depends_on_value ?? '',
+            is_required: Boolean(question.is_required),
+            sort_order: question.sort_order ?? index + 1,
+        })),
     });
 
     return (
@@ -44,7 +42,12 @@ export default function TemplatesEdit({ template }: { template: any }) {
             <div className="dp-page">
                 <div className="dp-page-header">
                     <div>
-                        <Button asChild variant="ghost" size="sm" className="-ml-2">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="-ml-2"
+                        >
                             <Link href="/templates">
                                 <ArrowLeft />
                                 Templates
@@ -59,7 +62,9 @@ export default function TemplatesEdit({ template }: { template: any }) {
                     </div>
                     <Button
                         variant="destructive"
-                        onClick={() => router.delete(`/templates/${template.id}`)}
+                        onClick={() =>
+                            router.delete(`/templates/${template.id}`)
+                        }
                     >
                         <Trash2 />
                         Delete template
@@ -76,7 +81,9 @@ export default function TemplatesEdit({ template }: { template: any }) {
                     <div className="dp-panel h-fit">
                         <div className="dp-panel-header">
                             <div>
-                                <h2 className="font-semibold">Template details</h2>
+                                <h2 className="font-semibold">
+                                    Template details
+                                </h2>
                                 <p className="text-sm text-muted-foreground">
                                     Naming and availability.
                                 </p>
@@ -123,7 +130,9 @@ export default function TemplatesEdit({ template }: { template: any }) {
                         </div>
                         <div className="dp-panel-body">
                             <QuestionEditor
-                                questions={data.questions as TemplateQuestionForm[]}
+                                questions={
+                                    data.questions as TemplateQuestionForm[]
+                                }
                                 onChange={(questions) =>
                                     setData('questions', questions)
                                 }

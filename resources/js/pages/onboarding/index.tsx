@@ -18,12 +18,12 @@ import {
 } from '@/components/forms/form-components';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { QuestionEditor } from '@/pages/templates/question-editor';
-import type { TemplateQuestionForm } from '@/pages/templates/question-editor';
 import {
     defaultReminderTemplate,
     ReminderSettings,
 } from '@/pages/schedules/reminder-settings';
+import { QuestionEditor } from '@/pages/templates/question-editor';
+import type { TemplateQuestionForm } from '@/pages/templates/question-editor';
 
 type Organization = { id: number; name: string; timezone: string };
 type Workspace = { id: number; name: string; timezone: string };

@@ -42,6 +42,15 @@ class User extends Authenticatable implements PasskeyUser
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
+    public function isSuperAdmin(): bool
+    {
+        $superAdminEmail = config('app.super_admin_email');
+
+        return is_string($superAdminEmail)
+            && $superAdminEmail !== ''
+            && strcasecmp($this->email, $superAdminEmail) === 0;
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -54,9 +63,7 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'is_active' => 'boolean',
             'onboarding_required' => 'boolean',
-            /* @chisel-2fa */
             'two_factor_confirmed_at' => 'datetime',
-            /* @end-chisel-2fa */
         ];
     }
 

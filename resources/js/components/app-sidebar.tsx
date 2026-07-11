@@ -5,11 +5,12 @@ import {
     CalendarClock,
     LayoutGrid,
     MessageSquare,
+    ChartNoAxesCombined,
     Plug,
     Users,
 } from 'lucide-react';
-import AppLogo from '@/components/app-logo';
 import { AppContextSwitcher } from '@/components/app-context-switcher';
+import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -38,6 +39,12 @@ const mainNavItems: RoleNavItem[] = [
         href: '/standups',
         icon: MessageSquare,
         capability: 'viewStandups',
+    },
+    {
+        title: 'Reports',
+        href: '/reports',
+        icon: ChartNoAxesCombined,
+        capability: 'viewDashboard',
     },
     {
         title: 'Templates',

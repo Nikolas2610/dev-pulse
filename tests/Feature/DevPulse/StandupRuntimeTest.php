@@ -82,6 +82,14 @@ class StandupRuntimeTest extends TestCase
             'external_user_id' => 'U123',
             'external_email' => $user->email,
         ]);
+        $pendingUser = User::factory()->create();
+        IntegrationUser::create([
+            'integration_id' => $integration->id,
+            'user_id' => $pendingUser->id,
+            'provider' => 'slack',
+            'external_user_id' => 'U_PENDING',
+            'external_email' => $pendingUser->email,
+        ]);
         $channel = IntegrationChannel::create([
             'integration_id' => $integration->id,
             'external_channel_id' => 'C123',
@@ -123,6 +131,14 @@ class StandupRuntimeTest extends TestCase
             'standup_question_id' => $question->id,
             'answer_text' => 'Shipping DevPulse',
         ]);
+        StandupResponse::create([
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'standup_run_id' => $run->id,
+            'user_id' => $pendingUser->id,
+            'status' => 'pending',
+            'source' => 'slack',
+        ]);
 
         Http::fake([
             'slack.com/api/chat.postMessage' => Http::response(['ok' => true, 'ts' => '123.456']),
@@ -140,6 +156,10 @@ class StandupRuntimeTest extends TestCase
             && str_contains($request['text'], 'Here is the report from <@U123>')
             && str_contains($request['text'], '*What are you focusing on today*')
             && str_contains($request['text'], 'Shipping DevPulse'));
+        Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage'
+            && str_contains($request['text'], '*Pending standup responses*')
+            && str_contains($request['text'], '- <@U_PENDING>')
+            && ! str_contains($request['text'], $pendingUser->name));
         $this->assertDatabaseHas('activity_events', [
             'organization_id' => $organization->id,
             'workspace_id' => $workspace->id,

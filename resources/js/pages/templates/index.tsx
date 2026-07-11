@@ -1,12 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import { BookOpen, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
     IndexDataControls,
     IndexDataState,
     IndexFilterSelect,
     IndexPagination,
 } from '@/components/index-data-controls';
+import { Button } from '@/components/ui/button';
 import { useIndexData } from '@/hooks/use-index-data';
 
 type Props = {

@@ -1,17 +1,17 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowRight, CalendarDays, MessageSquare } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
-import { StandupStatusBadge } from '@/components/standup-status-badge';
-import { AppDateFormatter } from '@/lib/date-format';
 import {
     IndexDataControls,
     IndexDataState,
     IndexFilterSelect,
     IndexPagination,
 } from '@/components/index-data-controls';
+import { StandupStatusBadge } from '@/components/standup-status-badge';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useIndexData } from '@/hooks/use-index-data';
+import { AppDateFormatter } from '@/lib/date-format';
 
 export default function StandupsIndex({
     indexEndpoint,

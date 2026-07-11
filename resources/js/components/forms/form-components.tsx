@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react';
 import type {
     ChangeEvent,
     ComponentPropsWithoutRef,
@@ -6,7 +7,6 @@ import type {
     SelectHTMLAttributes,
 } from 'react';
 import { Children, isValidElement, useId } from 'react';
-import { LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {

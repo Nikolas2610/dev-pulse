@@ -6,7 +6,11 @@ import {
 } from '@/components/forms/form-components';
 import Heading from '@/components/heading';
 
-export default function OrganizationSettings({ organization }: { organization: any }) {
+export default function OrganizationSettings({
+    organization,
+}: {
+    organization: any;
+}) {
     const { data, setData, patch, processing } = useForm({
         name: organization?.name ?? '',
         timezone: organization?.timezone ?? 'Asia/Nicosia',
@@ -34,7 +38,9 @@ export default function OrganizationSettings({ organization }: { organization: a
                 <TimezoneSelect
                     label="Timezone"
                     value={data.timezone}
-                    onChange={(event) => setData('timezone', event.target.value)}
+                    onChange={(event) =>
+                        setData('timezone', event.target.value)
+                    }
                 />
                 <FormActions submitLabel="Save" processing={processing} />
             </form>

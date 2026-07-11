@@ -20,7 +20,9 @@ export function ThemeToggle() {
                     variant="ghost"
                     size="icon"
                     className="h-9 w-14 rounded-full border border-border/70 bg-background/80 p-1 shadow-xs hover:bg-accent"
-                    aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                    aria-label={
+                        isDark ? 'Switch to light mode' : 'Switch to dark mode'
+                    }
                     onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
                 >
                     <span className="relative grid h-full w-full grid-cols-2 items-center">
