@@ -1,5 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
-import { useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
@@ -16,6 +24,7 @@ import { request } from '@/routes/password';
 type Props = {
     status?: string;
     canResetPassword: boolean;
+    developmentLogin: boolean;
     recentLoginUsers: RecentLoginUser[];
 };
 
@@ -23,6 +32,7 @@ type RecentLoginUser = {
     id: number;
     name: string;
     email: string;
+    role: 'owner' | 'admin' | 'manager' | 'member';
 };
 
 const defaultDevelopmentPassword = 'password';
@@ -30,10 +40,19 @@ const defaultDevelopmentPassword = 'password';
 export default function Login({
     status,
     canResetPassword,
+    developmentLogin,
     recentLoginUsers,
 }: Props) {
     const emailInput = useRef<HTMLInputElement>(null);
     const passwordInput = useRef<HTMLInputElement>(null);
+    const [role, setRole] = useState('all');
+    const filteredUsers = useMemo(
+        () =>
+            role === 'all'
+                ? recentLoginUsers
+                : recentLoginUsers.filter((user) => user.role === role),
+        [recentLoginUsers, role],
+    );
 
     const fillDevelopmentCredentials = (email: string) => {
         if (emailInput.current) {
@@ -125,11 +144,47 @@ export default function Login({
 
                         {recentLoginUsers.length > 0 && (
                             <div className="grid gap-2 rounded-md border border-dashed p-3">
-                                <div className="text-xs font-medium text-muted-foreground uppercase">
-                                    Last 5 created users
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="text-xs font-medium text-muted-foreground uppercase">
+                                        {developmentLogin
+                                            ? 'Development users'
+                                            : 'Last 5 created users'}
+                                    </div>
+                                    {developmentLogin && (
+                                        <Select
+                                            value={role}
+                                            onValueChange={setRole}
+                                        >
+                                            <SelectTrigger
+                                                className="h-8 w-32"
+                                                aria-label="Filter users by role"
+                                            >
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectItem value="all">
+                                                        All roles
+                                                    </SelectItem>
+                                                    <SelectItem value="owner">
+                                                        Owners
+                                                    </SelectItem>
+                                                    <SelectItem value="admin">
+                                                        Admins
+                                                    </SelectItem>
+                                                    <SelectItem value="manager">
+                                                        Managers
+                                                    </SelectItem>
+                                                    <SelectItem value="member">
+                                                        Members
+                                                    </SelectItem>
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
                                 </div>
-                                <div className="grid gap-1">
-                                    {recentLoginUsers.map((user) => (
+                                <div className="grid max-h-56 gap-1 overflow-y-auto">
+                                    {filteredUsers.map((user) => (
                                         <button
                                             key={user.id}
                                             type="button"
@@ -140,14 +195,26 @@ export default function Login({
                                                 )
                                             }
                                         >
-                                            <span className="font-medium">
-                                                {user.name}
+                                            <span className="flex items-center justify-between gap-2">
+                                                <span className="truncate font-medium">
+                                                    {user.name}
+                                                </span>
+                                                {developmentLogin && (
+                                                    <span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                                        {user.role}
+                                                    </span>
+                                                )}
                                             </span>
                                             <span className="text-xs text-muted-foreground">
                                                 {user.email}
                                             </span>
                                         </button>
                                     ))}
+                                    {filteredUsers.length === 0 && (
+                                        <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                                            No users have this role.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

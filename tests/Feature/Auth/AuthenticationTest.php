@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Organization;
 use App\Models\User;
+use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -68,6 +70,25 @@ class AuthenticationTest extends TestCase
             ->has('recentLoginUsers', 5)
             ->where('recentLoginUsers.0.email', $users->last()->email)
         );
+    }
+
+    public function test_local_login_screen_includes_roles_for_development_users()
+    {
+        $this->app->detectEnvironment(fn () => 'local');
+        $organization = Organization::factory()->create();
+        $workspace = Workspace::factory()->for($organization)->create();
+        $manager = User::factory()->create([
+            'current_organization_id' => $organization->id,
+            'current_workspace_id' => $workspace->id,
+        ]);
+        $organization->users()->attach($manager, ['role' => 'member']);
+        $workspace->users()->attach($manager, ['role' => 'manager', 'is_active' => true]);
+
+        $this->get(route('login'))->assertInertia(fn (Assert $page) => $page
+            ->component('auth/login')
+            ->where('developmentLogin', true)
+            ->where('recentLoginUsers.0.email', $manager->email)
+            ->where('recentLoginUsers.0.role', 'manager'));
     }
 
     public function test_users_can_authenticate_using_the_login_screen()

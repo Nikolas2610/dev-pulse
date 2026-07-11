@@ -14,6 +14,7 @@ use App\Http\Controllers\SlackInteractionController;
 use App\Http\Controllers\StandupRunController;
 use App\Http\Controllers\StandupSubmissionController;
 use App\Http\Controllers\TeamMemberController;
+use App\Http\Controllers\TeamStandupController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceSettingsController;
@@ -56,6 +57,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('standups/{run}', [StandupRunController::class, 'show'])->name('standups.show');
         Route::get('standup-runs/{run}/submit', [StandupSubmissionController::class, 'create'])->name('standup-runs.submit');
         Route::post('standup-runs/{run}/submit', [StandupSubmissionController::class, 'store'])->name('standup-runs.submit.store');
+        Route::post('standup-runs/{run}/skip', [StandupSubmissionController::class, 'skip'])->name('standup-runs.skip');
     });
     Route::middleware('role-capability:manageTemplates')->group(function () {
         Route::get('templates', [TemplateController::class, 'index'])->name('templates.index');
@@ -78,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::middleware('role-capability:viewTeam')->group(function () {
         Route::get('team-members', [TeamMemberController::class, 'index'])->name('team-members.index');
+        Route::get('team-standups', TeamStandupController::class)->name('team-standups.index');
     });
     Route::middleware('role-capability:manageTeam')->group(function () {
         Route::post('team-members', [TeamMemberController::class, 'store'])->name('team-members.store');

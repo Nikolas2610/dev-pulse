@@ -58,7 +58,7 @@ class StandupSubmissionController extends Controller
 
         if ($existingResponse && $existingResponse->status !== 'pending') {
             throw ValidationException::withMessages([
-                'standup_run' => __('You have already submitted this standup.'),
+                'standup_run' => __('You have already completed this standup.'),
             ]);
         }
 
@@ -125,6 +125,68 @@ class StandupSubmissionController extends Controller
         $submissionFinalizer->handle($response);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Standup submitted.')]);
+
+        return to_route('standups.show', $run);
+    }
+
+    public function skip(
+        Request $request,
+        StandupRun $run,
+        CurrentOrganization $currentOrganization,
+        ActivityEventService $events,
+        StandupRunCompletionService $completion,
+    ): RedirectResponse {
+        $organization = $currentOrganization->fromRequest($request);
+        abort_unless($organization && $run->organization_id === $organization->id, 404);
+        abort_unless(
+            $currentOrganization->workspacesForUser($organization, $request->user())->contains('id', $run->workspace_id),
+            404,
+        );
+
+        if (in_array($run->status, ['completed', 'cancelled'], true)) {
+            throw ValidationException::withMessages([
+                'standup_run' => __('This standup is closed.'),
+            ]);
+        }
+
+        $existingResponse = $run->responses()->where('user_id', $request->user()->id)->first();
+
+        if ($existingResponse && $existingResponse->status !== 'pending') {
+            throw ValidationException::withMessages([
+                'standup_run' => __('You have already completed this standup.'),
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $run, $events, $completion): void {
+            $response = StandupResponse::firstOrNew([
+                'standup_run_id' => $run->id,
+                'user_id' => $request->user()->id,
+            ]);
+
+            $response->fill([
+                'organization_id' => $run->organization_id,
+                'workspace_id' => $run->workspace_id,
+                'status' => 'skipped',
+                'submitted_at' => now(),
+                'source' => 'web',
+            ])->save();
+
+            $response->answers()->delete();
+
+            $run->loadMissing('organization', 'workspace');
+
+            $events->record(
+                $run->organization,
+                ActivityEventService::STANDUP_RESPONSE_SKIPPED,
+                workspace: $run->workspace,
+                user: $request->user(),
+                subject: $response,
+            );
+
+            $completion->completeIfAllResponsesSubmitted($run);
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Standup skipped.')]);
 
         return to_route('standups.show', $run);
     }
