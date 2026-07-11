@@ -3,10 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Organization;
+use App\Models\StandupTemplate;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends Factory<StandupTemplate> */
 class StandupTemplateFactory extends Factory
 {
     public function definition(): array

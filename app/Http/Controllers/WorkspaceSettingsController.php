@@ -33,9 +33,9 @@ class WorkspaceSettingsController extends Controller
         $workspace = $organization && $request->user()
             ? $currentOrganization->currentWorkspaceForUser($organization, $request->user())
             : null;
-        abort_unless($workspace, 404);
+        abort_unless($workspace !== null, 404);
         abort_unless(
-            $organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()),
+            $currentOrganization->canManageCurrentWorkspace($organization, $request->user()),
             403,
         );
 

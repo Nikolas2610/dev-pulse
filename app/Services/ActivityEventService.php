@@ -20,6 +20,9 @@ class ActivityEventService
 
     public const SLACK_CHANNEL_SYNCED = 'slack.channel.synced';
 
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
     public function record(
         Organization $organization,
         string $eventType,

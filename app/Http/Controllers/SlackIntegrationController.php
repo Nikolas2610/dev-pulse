@@ -31,7 +31,7 @@ class SlackIntegrationController extends Controller
             'integration' => $integration,
             'slackUsers' => $this->slackUsers($integration),
             'isConfigured' => filled($credentials['client_id']) && filled($credentials['client_secret']),
-            'hasWorkspaceCredentials' => filled($integration?->client_id) && filled($integration?->client_secret),
+            'hasWorkspaceCredentials' => $integration !== null && filled($integration->client_id) && filled($integration->client_secret),
             'hasSigningSecret' => filled($integration?->signing_secret) || filled(config('services.slack.signing_secret')),
             'redirectUri' => $this->redirectUri(),
             'interactionsUrl' => route('slack.interactions'),
@@ -45,7 +45,7 @@ class SlackIntegrationController extends Controller
         abort_unless($organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $workspace = $currentOrganization->currentWorkspaceForUser($organization, $request->user());
-        abort_unless($workspace, 403);
+        abort_unless($workspace !== null, 403);
 
         $existingIntegration = $this->workspaceIntegration($organization->id, $workspace->id);
 
@@ -115,9 +115,9 @@ class SlackIntegrationController extends Controller
     public function callback(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_unless($organization !== null, 403);
         $workspace = $currentOrganization->currentWorkspaceForUser($organization, $request->user());
-        abort_unless($workspace, 403);
+        abort_unless($workspace !== null, 403);
 
         if ($request->filled('error')) {
             Inertia::flash('toast', [
@@ -315,7 +315,10 @@ class SlackIntegrationController extends Controller
         abort_unless($workspace && $integration->workspace_id === $workspace->id, 404);
     }
 
-    private function slackUsers(?Integration $integration)
+    /**
+     * @return array<int, array{id: int, external_user_id: string, external_username: ?string, external_email: ?string, display_name: ?string, avatar_url: ?string, is_linked: bool, linked_user: array{id: int, name: string, email: string}|null}>
+     */
+    private function slackUsers(?Integration $integration): array
     {
         if (! $integration) {
             return [];
@@ -341,6 +344,7 @@ class SlackIntegrationController extends Controller
                         'email' => $slackUser->user->email,
                     ]
                     : null,
-            ]);
+            ])
+            ->all();
     }
 }

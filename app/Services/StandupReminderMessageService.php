@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\StandupRunReminder;
+use Illuminate\Support\Carbon;
 
 class StandupReminderMessageService
 {
@@ -16,7 +17,7 @@ class StandupReminderMessageService
         $minutes = $reminder->minutes_before_end;
         $remaining = $minutes === 1 ? '1 minute' : $minutes.' minutes';
         $endTime = $run->summary_due_at
-            ? $run->summary_due_at->timezone($schedule?->timezone ?? config('app.timezone'))->format('H:i')
+            ? Carbon::parse($run->summary_due_at)->timezone($schedule->timezone ?? config('app.timezone'))->format('H:i')
             : '';
 
         return strtr($schedule?->reminder_message_template ?: self::DEFAULT_TEMPLATE, [

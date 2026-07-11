@@ -23,7 +23,7 @@ class StandupSchedulerService
             ->each(function (StandupSchedule $schedule) use ($date, &$created): void {
                 $scheduleDate = ($date ?? now($schedule->timezone))->copy()->timezone($schedule->timezone);
 
-                if (! in_array((int) $scheduleDate->dayOfWeekIso, $schedule->days_of_week ?? [], true)) {
+                if (! in_array((int) $scheduleDate->dayOfWeekIso, $this->daysOfWeek($schedule), true)) {
                     return;
                 }
 
@@ -58,5 +58,22 @@ class StandupSchedulerService
             });
 
         return $created;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function daysOfWeek(StandupSchedule $schedule): array
+    {
+        $days = $schedule->getAttribute('days_of_week');
+
+        if (is_string($days)) {
+            $decoded = json_decode($days, true);
+            $days = is_array($decoded) ? $decoded : [];
+        }
+
+        return collect(is_array($days) ? $days : [])
+            ->map(fn ($day): int => (int) $day)
+            ->all();
     }
 }

@@ -34,7 +34,8 @@ class SlackInteractionController extends Controller
 
         if ($payloadJson === '') {
             parse_str($request->getContent(), $parsedBody);
-            $payloadJson = (string) ($parsedBody['payload'] ?? '');
+            $parsedPayload = $parsedBody['payload'] ?? '';
+            $payloadJson = is_string($parsedPayload) ? $parsedPayload : '';
         }
 
         $payload = json_decode($payloadJson, true);
@@ -213,7 +214,7 @@ class SlackInteractionController extends Controller
 
         $question = $run->template->questions->firstWhere('id', (int) ($actionValue['question_id'] ?? 0));
 
-        abort_unless($question, 404);
+        abort_unless($question !== null, 404);
 
         $slackUserId = $payload['user']['id'] ?? null;
         $integrationUser = $slackUserId
@@ -224,7 +225,7 @@ class SlackInteractionController extends Controller
                 ->first()
             : null;
 
-        abort_unless($integrationUser, 403);
+        abort_unless($integrationUser !== null, 403);
 
         $answer = $this->extractSlackAnswerValue($payload['state']['values']['question_'.$question->id]['answer'] ?? []);
 
@@ -251,7 +252,7 @@ class SlackInteractionController extends Controller
         }
 
         $response->load('answers');
-        $currentQuestionId = $response->raw_json['current_question_id'] ?? null;
+        $currentQuestionId = $this->responseRawJson($response)['current_question_id'] ?? null;
         $shouldAdvance = ! $currentQuestionId || (int) $currentQuestionId === $question->id;
 
         $response->answers()->updateOrCreate(
@@ -289,7 +290,7 @@ class SlackInteractionController extends Controller
         if ($nextQuestion) {
             $response->forceFill([
                 'raw_json' => [
-                    ...($response->raw_json ?? []),
+                    ...$this->responseRawJson($response),
                     'current_question_id' => $nextQuestion->id,
                 ],
             ])->save();
@@ -315,7 +316,7 @@ class SlackInteractionController extends Controller
             'source' => 'slack',
             'external_message_id' => $payload['message']['ts'] ?? null,
             'raw_json' => [
-                ...($response->raw_json ?? []),
+                ...$this->responseRawJson($response),
                 'current_question_id' => null,
                 'completed_via' => 'slack_message',
                 'last_payload' => $payload,
@@ -450,7 +451,7 @@ class SlackInteractionController extends Controller
 
             $response->forceFill([
                 'raw_json' => [
-                    ...($response->raw_json ?? []),
+                    ...$this->responseRawJson($response),
                     'current_question_id' => $nextQuestion->id,
                 ],
             ])->save();
@@ -464,7 +465,7 @@ class SlackInteractionController extends Controller
             'source' => 'slack',
             'external_message_id' => $event['ts'] ?? null,
             'raw_json' => [
-                ...($response->raw_json ?? []),
+                ...$this->responseRawJson($response),
                 'current_question_id' => null,
                 'completed_via' => 'slack_message',
             ],
@@ -546,9 +547,9 @@ class SlackInteractionController extends Controller
     /**
      * @param  Collection<int, StandupQuestion>  $questions
      */
-    private function currentQuestionForResponse(StandupResponse $response, $questions): ?StandupQuestion
+    private function currentQuestionForResponse(StandupResponse $response, Collection $questions): ?StandupQuestion
     {
-        $currentQuestionId = $response->raw_json['current_question_id'] ?? null;
+        $currentQuestionId = $this->responseRawJson($response)['current_question_id'] ?? null;
 
         if ($currentQuestionId) {
             $question = $questions->firstWhere('id', $currentQuestionId);
@@ -575,6 +576,9 @@ class SlackInteractionController extends Controller
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>|null  $payload
+     */
     private function closedStandupMessage(
         ?array $payload = null,
         ?SlackIntegrationService $slack = null,
@@ -616,6 +620,23 @@ class SlackInteractionController extends Controller
             return $state['selected_option']['value'] ?? null;
         }
 
-        return $state['value'] ?? null;
+        $value = $state['value'] ?? null;
+
+        return is_string($value) ? $value : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function responseRawJson(StandupResponse $response): array
+    {
+        $rawJson = $response->getAttribute('raw_json');
+
+        if (is_string($rawJson)) {
+            $decoded = json_decode($rawJson, true);
+            $rawJson = is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($rawJson) ? $rawJson : [];
     }
 }

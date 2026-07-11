@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class StandupSummary extends Model
 {
+    /** @return BelongsTo<StandupRun, $this> */
     public function run(): BelongsTo
     {
         return $this->belongsTo(StandupRun::class, 'standup_run_id');

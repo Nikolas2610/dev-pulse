@@ -8,6 +8,7 @@ use App\Models\StandupTemplate;
 use App\Services\CurrentOrganization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,7 +33,7 @@ class TemplateController extends Controller
     public function create(Request $request, CurrentOrganization $currentOrganization): Response
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_unless($organization !== null, 403);
         abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         return Inertia::render('templates/create', [
@@ -44,7 +45,7 @@ class TemplateController extends Controller
     public function store(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_unless($organization !== null, 403);
         abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $validated = $request->validate([
@@ -65,7 +66,7 @@ class TemplateController extends Controller
             'questions.*.is_required' => ['boolean'],
             'questions.*.sort_order' => ['required', 'integer', 'min:1'],
         ]);
-        $validated['questions'] = $this->normalizeQuestionOptions($validated['questions']);
+        $validatedQuestions = $this->normalizeQuestionOptions(is_array($validated['questions'] ?? null) ? $validated['questions'] : []);
         $this->authorizeWorkspaceSelection(
             $validated['workspace_id'] ?? null,
             $organization,
@@ -83,9 +84,9 @@ class TemplateController extends Controller
             'created_by_user_id' => $request->user()->id,
         ]);
 
-        $savedQuestions = collect();
+        $savedQuestions = new Collection;
 
-        foreach ($validated['questions'] as $question) {
+        foreach ($validatedQuestions as $question) {
             $savedQuestions->push($template->questions()->create([
                 'question_text' => $question['question_text'],
                 'question_key' => $question['question_key'] ?? null,
@@ -96,7 +97,7 @@ class TemplateController extends Controller
             ]));
         }
 
-        $this->syncQuestionDependencies($validated['questions'], $savedQuestions);
+        $this->syncQuestionDependencies($validatedQuestions, $savedQuestions);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Template created.')]);
 
@@ -141,7 +142,7 @@ class TemplateController extends Controller
             'questions.*.is_required' => ['boolean'],
             'questions.*.sort_order' => ['required', 'integer', 'min:1'],
         ]);
-        $validated['questions'] = $this->normalizeQuestionOptions($validated['questions']);
+        $validatedQuestions = $this->normalizeQuestionOptions(is_array($validated['questions'] ?? null) ? $validated['questions'] : []);
 
         $template->update([
             'name' => $validated['name'],
@@ -150,9 +151,9 @@ class TemplateController extends Controller
         ]);
 
         $keptQuestionIds = [];
-        $savedQuestions = collect();
+        $savedQuestions = new Collection;
 
-        foreach ($validated['questions'] as $question) {
+        foreach ($validatedQuestions as $question) {
             $standupQuestion = StandupQuestion::updateOrCreate(
                 [
                     'id' => $question['id'] ?? null,
@@ -172,7 +173,7 @@ class TemplateController extends Controller
             $savedQuestions->push($standupQuestion);
         }
 
-        $this->syncQuestionDependencies($validated['questions'], $savedQuestions);
+        $this->syncQuestionDependencies($validatedQuestions, $savedQuestions);
 
         $template->questions()
             ->whereNotIn('id', $keptQuestionIds)
@@ -190,7 +191,8 @@ class TemplateController extends Controller
         $errors = [];
 
         foreach ($questions as $index => $question) {
-            $options = collect($question['options_json'] ?? [])
+            $rawOptions = $question['options_json'] ?? [];
+            $options = collect(is_array($rawOptions) ? $rawOptions : [])
                 ->map(fn ($option) => trim((string) $option))
                 ->filter()
                 ->unique()
@@ -213,8 +215,9 @@ class TemplateController extends Controller
 
     /**
      * @param  array<int, array<string, mixed>>  $questions
+     * @param  Collection<int, StandupQuestion>  $savedQuestions
      */
-    private function syncQuestionDependencies(array $questions, $savedQuestions): void
+    private function syncQuestionDependencies(array $questions, Collection $savedQuestions): void
     {
         foreach ($questions as $index => $question) {
             $savedQuestion = $savedQuestions->get($index);

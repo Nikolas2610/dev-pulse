@@ -29,6 +29,11 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property int|null $current_organization_id
+ * @property int|null $current_workspace_id
+ * @property string|null $timezone
+ * @property string|null $avatar_url
+ * @property bool $is_active
  */
 #[Fillable(['name', 'email', 'email_verified_at', 'password', 'current_organization_id', 'current_workspace_id', 'timezone', 'avatar_url', 'is_active', 'onboarding_required'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -55,26 +60,31 @@ class User extends Authenticatable implements PasskeyUser
         ];
     }
 
+    /** @return BelongsTo<Organization, $this> */
     public function currentOrganization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'current_organization_id');
     }
 
+    /** @return BelongsTo<Workspace, $this> */
     public function currentWorkspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class, 'current_workspace_id');
     }
 
+    /** @return BelongsToMany<Organization, $this> */
     public function organizations(): BelongsToMany
     {
         return $this->belongsToMany(Organization::class)->withPivot('role')->withTimestamps();
     }
 
+    /** @return BelongsToMany<Workspace, $this> */
     public function workspaces(): BelongsToMany
     {
         return $this->belongsToMany(Workspace::class, 'workspace_user')->withPivot(['role', 'is_active'])->withTimestamps();
     }
 
+    /** @return HasMany<IntegrationUser, $this> */
     public function integrationUsers(): HasMany
     {
         return $this->hasMany(IntegrationUser::class);
