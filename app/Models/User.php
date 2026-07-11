@@ -7,6 +7,9 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -26,8 +29,13 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property int|null $current_organization_id
+ * @property int|null $current_workspace_id
+ * @property string|null $timezone
+ * @property string|null $avatar_url
+ * @property bool $is_active
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'email_verified_at', 'password', 'current_organization_id', 'current_workspace_id', 'timezone', 'avatar_url', 'is_active', 'onboarding_required'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -44,9 +52,41 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'onboarding_required' => 'boolean',
             /* @chisel-2fa */
             'two_factor_confirmed_at' => 'datetime',
             /* @end-chisel-2fa */
         ];
+    }
+
+    /** @return BelongsTo<Organization, $this> */
+    public function currentOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'current_organization_id');
+    }
+
+    /** @return BelongsTo<Workspace, $this> */
+    public function currentWorkspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, 'current_workspace_id');
+    }
+
+    /** @return BelongsToMany<Organization, $this> */
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class)->withPivot('role')->withTimestamps();
+    }
+
+    /** @return BelongsToMany<Workspace, $this> */
+    public function workspaces(): BelongsToMany
+    {
+        return $this->belongsToMany(Workspace::class, 'workspace_user')->withPivot(['role', 'is_active'])->withTimestamps();
+    }
+
+    /** @return HasMany<IntegrationUser, $this> */
+    public function integrationUsers(): HasMany
+    {
+        return $this->hasMany(IntegrationUser::class);
     }
 }

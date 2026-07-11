@@ -1,7 +1,15 @@
-import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import {
+    BookOpen,
+    BriefcaseBusiness,
+    CalendarClock,
+    LayoutGrid,
+    MessageSquare,
+    Plug,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
+import { AppContextSwitcher } from '@/components/app-context-switcher';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -14,30 +22,67 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import type { NavItem } from '@/types';
+import type { AccessCapabilities, NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+type RoleNavItem = NavItem & { capability: keyof AccessCapabilities };
+
+const mainNavItems: RoleNavItem[] = [
     {
         title: 'Dashboard',
         href: dashboard(),
         icon: LayoutGrid,
-    },
-];
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        capability: 'viewDashboard',
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
+        title: 'Standups',
+        href: '/standups',
+        icon: MessageSquare,
+        capability: 'viewStandups',
+    },
+    {
+        title: 'Templates',
+        href: '/templates',
         icon: BookOpen,
+        capability: 'manageTemplates',
+    },
+    {
+        title: 'Schedules',
+        href: '/schedules',
+        icon: CalendarClock,
+        capability: 'manageSchedules',
+    },
+    {
+        title: 'Workspaces',
+        href: '/workspaces',
+        icon: BriefcaseBusiness,
+        capability: 'manageWorkspaces',
+    },
+    {
+        title: 'Team Members',
+        href: '/team-members',
+        icon: Users,
+        capability: 'viewTeam',
+    },
+    {
+        title: 'Slack',
+        href: '/integrations/slack',
+        icon: Plug,
+        capability: 'manageIntegrations',
+    },
+    {
+        title: 'Discord',
+        href: '/integrations/discord',
+        icon: Plug,
+        capability: 'manageIntegrations',
     },
 ];
 
 export function AppSidebar() {
+    const capabilities = usePage().props.access.capabilities;
+    const visibleNavItems = mainNavItems.filter(
+        (item) => capabilities[item.capability],
+    );
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -50,14 +95,14 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                <AppContextSwitcher />
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={visibleNavItems} />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

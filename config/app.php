@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'DevPulse'),
 
     /*
     |--------------------------------------------------------------------------
@@ -121,6 +121,13 @@ return [
     'maintenance' => [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
+    ],
+
+    'dev_commands' => [
+        'server_host' => env('SERVER_HOST', '0.0.0.0'),
+        'server_port' => env('SERVER_PORT', 8003),
+        'vite_host' => env('VITE_HOST', '0.0.0.0'),
+        'vite_port' => env('VITE_PORT', 5175),
     ],
 
 ];

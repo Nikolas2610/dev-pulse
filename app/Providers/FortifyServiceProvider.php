@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Actions\Fortify\CreateNewUser;
 /* @end-chisel-registration */
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Responses\RegisterResponse;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -14,6 +16,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
@@ -24,7 +27,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
     }
 
     /**
@@ -55,6 +58,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
+            'recentLoginUsers' => $this->recentLoginUsers(),
             'status' => $request->session()->get('status'),
         ]));
 
@@ -87,6 +91,26 @@ class FortifyServiceProvider extends ServiceProvider
         /* @chisel-password-confirmation */
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/confirm-password'));
         /* @end-chisel-password-confirmation */
+    }
+
+    /**
+     * Get the last five created users for login shortcuts.
+     *
+     * @return array<int, array{id: int, name: string, email: string}>
+     */
+    private function recentLoginUsers(): array
+    {
+        return User::query()
+            ->latest('created_at')
+            ->latest('id')
+            ->limit(5)
+            ->get(['id', 'name', 'email'])
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ])
+            ->all();
     }
 
     /**
