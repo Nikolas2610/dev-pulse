@@ -22,7 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
-        $middleware->validateCsrfTokens(except: ['slack/interactions']);
+        $middleware->validateCsrfTokens(except: [
+            'slack/interactions',
+            'slack/events',
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,
