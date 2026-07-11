@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { AlertTriangle, Send } from 'lucide-react';
+import { useState } from 'react';
 import { FormActions, FormField } from '@/components/forms/form-components';
 import { Badge } from '@/components/ui/badge';
 

@@ -34,7 +34,9 @@ export default function WorkspaceSettings({ workspace }: { workspace: any }) {
                 <TimezoneSelect
                     label="Timezone"
                     value={data.timezone}
-                    onChange={(event) => setData('timezone', event.target.value)}
+                    onChange={(event) =>
+                        setData('timezone', event.target.value)
+                    }
                 />
                 <FormActions submitLabel="Save" processing={processing} />
             </form>

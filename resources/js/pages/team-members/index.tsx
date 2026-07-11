@@ -6,15 +6,14 @@ import {
     FormGrid,
     FormSelect,
 } from '@/components/forms/form-components';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
     IndexDataControls,
     IndexDataState,
     IndexFilterSelect,
     IndexPagination,
 } from '@/components/index-data-controls';
-import { useIndexData } from '@/hooks/use-index-data';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Sheet,
     SheetContent,
@@ -23,6 +22,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useIndexData } from '@/hooks/use-index-data';
 
 type Workspace = {
     id: number;

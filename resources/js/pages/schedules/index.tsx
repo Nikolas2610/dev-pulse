@@ -17,6 +17,12 @@ import {
     FormSelect,
     TimezoneSelect,
 } from '@/components/forms/form-components';
+import {
+    IndexDataControls,
+    IndexDataState,
+    IndexFilterSelect,
+    IndexPagination,
+} from '@/components/index-data-controls';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,18 +40,12 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useIndexData } from '@/hooks/use-index-data';
 import { RecipientPicker } from '@/pages/schedules/recipient-picker';
 import {
     defaultReminderTemplate,
     ReminderSettings,
 } from '@/pages/schedules/reminder-settings';
-import {
-    IndexDataControls,
-    IndexDataState,
-    IndexFilterSelect,
-    IndexPagination,
-} from '@/components/index-data-controls';
-import { useIndexData } from '@/hooks/use-index-data';
 
 export default function SchedulesIndex({
     indexEndpoint,

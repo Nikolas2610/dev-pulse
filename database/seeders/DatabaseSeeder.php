@@ -115,5 +115,7 @@ class DatabaseSeeder extends Seeder
                 'created_by_user_id' => $user->id,
             ],
         );
+
+        $this->call(ReportsDemoSeeder::class);
     }
 }

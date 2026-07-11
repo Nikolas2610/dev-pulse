@@ -1,9 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { dashboard, login } from '@/routes';
-/* @chisel-registration */
 import { register } from '@/routes';
-/* @end-chisel-registration */
 
 export default function Welcome() {
     const { auth, name = 'DevPulse' } = usePage().props;
@@ -42,14 +40,12 @@ export default function Welcome() {
                                 >
                                     Log in
                                 </Link>
-                                {/* @chisel-registration */}
                                 <Link
                                     href={register()}
                                     className="rounded-md bg-white px-3 py-2 font-medium text-[#07131f] hover:bg-cyan-100 sm:px-4"
                                 >
                                     Register
                                 </Link>
-                                {/* @end-chisel-registration */}
                             </>
                         )}
                     </nav>

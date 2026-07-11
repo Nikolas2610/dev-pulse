@@ -172,7 +172,7 @@ class StandupSummaryService
             $messageIds[] = $this->slack->postMessage(
                 $integration,
                 $channel->external_channel_id,
-                $this->renderSlackPendingResponses($pending),
+                $this->renderSlackPendingResponses($pending, $integrationUsers),
             );
         }
 
@@ -252,13 +252,18 @@ class StandupSummaryService
 
     /**
      * @param  Collection<int, StandupResponse>  $pending
+     * @param  Collection<int, IntegrationUser>  $integrationUsers
      */
-    private function renderSlackPendingResponses(Collection $pending): string
+    private function renderSlackPendingResponses(Collection $pending, Collection $integrationUsers): string
     {
         $lines = ['*Pending standup responses*'];
 
         foreach ($pending as $response) {
-            $lines[] = '- '.$response->user?->name;
+            $slackUser = $integrationUsers->get($response->user_id);
+            $memberLabel = $slackUser?->external_user_id
+                ? '<@'.$slackUser->external_user_id.'>'
+                : $response->user?->name;
+            $lines[] = '- '.$memberLabel;
         }
 
         return implode("\n", $lines);
