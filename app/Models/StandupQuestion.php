@@ -20,6 +20,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'is_required',
     'sort_order',
 ])]
+/**
+ * @property int $id
+ * @property int $standup_template_id
+ * @property string $question_text
+ * @property string|null $question_key
+ * @property string $answer_type
+ * @property array<int, string>|null $options_json
+ * @property bool $is_required
+ * @property int $sort_order
+ */
 class StandupQuestion extends Model
 {
     /** @use HasFactory<StandupQuestionFactory> */
@@ -33,16 +43,19 @@ class StandupQuestion extends Model
         ];
     }
 
+    /** @return BelongsTo<StandupTemplate, $this> */
     public function template(): BelongsTo
     {
         return $this->belongsTo(StandupTemplate::class, 'standup_template_id');
     }
 
+    /** @return BelongsTo<StandupQuestion, $this> */
     public function dependencyQuestion(): BelongsTo
     {
         return $this->belongsTo(self::class, 'depends_on_question_id');
     }
 
+    /** @return BelongsTo<StandupTemplate, $this> */
     public function standupTemplate(): BelongsTo
     {
         return $this->template();

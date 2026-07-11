@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\PostLateStandupAddendumJob;
 use App\Models\StandupResponse;
+use Illuminate\Support\Carbon;
 
 class StandupSubmissionFinalizer
 {
@@ -11,7 +12,7 @@ class StandupSubmissionFinalizer
     {
         $response->loadMissing('run');
 
-        if ($response->run->summary_due_at && $response->submitted_at?->greaterThan($response->run->summary_due_at)) {
+        if ($response->run->summary_due_at && $response->submitted_at && Carbon::parse($response->submitted_at)->greaterThan(Carbon::parse($response->run->summary_due_at))) {
             PostLateStandupAddendumJob::dispatch($response->id)->afterCommit();
         }
     }

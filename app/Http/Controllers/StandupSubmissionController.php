@@ -66,9 +66,10 @@ class StandupSubmissionController extends Controller
             'answers' => ['required', 'array'],
             'answers.*' => ['nullable', 'string'],
         ]);
+        $validatedAnswers = is_array($validated['answers'] ?? null) ? $validated['answers'] : [];
 
         $run->loadMissing('template.questions', 'organization', 'workspace');
-        $answersByQuestion = collect($validated['answers'])
+        $answersByQuestion = collect($validatedAnswers)
             ->mapWithKeys(fn ($answer, $questionId) => [(int) $questionId => $answer])
             ->all();
         $visibleQuestions = $questionFlow->visibleQuestions(
@@ -85,7 +86,7 @@ class StandupSubmissionController extends Controller
             ]);
         }
 
-        $response = DB::transaction(function () use ($request, $run, $validated, $events, $visibleQuestions, $completion): StandupResponse {
+        $response = DB::transaction(function () use ($request, $run, $validatedAnswers, $events, $visibleQuestions, $completion): StandupResponse {
             $response = StandupResponse::firstOrNew([
                 'standup_run_id' => $run->id,
                 'user_id' => $request->user()->id,
@@ -104,7 +105,7 @@ class StandupSubmissionController extends Controller
             foreach ($visibleQuestions as $question) {
                 $response->answers()->create([
                     'standup_question_id' => $question->id,
-                    'answer_text' => $validated['answers'][$question->id] ?? null,
+                    'answer_text' => $validatedAnswers[$question->id] ?? null,
                 ]);
             }
 

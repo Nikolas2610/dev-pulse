@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Models\Integration;
 use App\Models\IntegrationChannel;
 use App\Models\IntegrationUser;
+use App\Models\StandupQuestion;
 use App\Models\StandupResponse;
 use App\Models\StandupRun;
 use App\Models\StandupSummary;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -95,7 +97,7 @@ class StandupSummaryService
         $this->events->record(
             $run->organization,
             ActivityEventService::STANDUP_SUMMARY_POSTED,
-            source: $integration?->provider ?? 'system',
+            source: $integration instanceof Integration ? $integration->provider : 'system',
             workspace: $run->workspace,
             subject: $summary,
             externalId: $externalMessageId,
@@ -118,7 +120,7 @@ class StandupSummaryService
             ->sortBy(fn ($response) => $response->user?->name);
         $lines = [
             "*Daily standup - {$run->workspace->name}*",
-            $run->run_date->toDateString(),
+            Carbon::parse($run->run_date)->toDateString(),
             "Completed: *{$responses->count()}/{$recipients->count()}*",
             '',
         ];
@@ -126,7 +128,7 @@ class StandupSummaryService
         foreach ($responses as $response) {
             $lines[] = "*{$response->user->name} submitted their standup*";
 
-            foreach ($response->answers->sortBy(fn ($answer) => $answer->question?->sort_order ?? 0) as $answer) {
+            foreach ($response->answers->sortBy(fn ($answer) => $answer->question->sort_order) as $answer) {
                 $lines[] = '- *'.$this->summaryQuestionLabel($answer->question).':* '.($answer->answer_text ?: '-');
             }
 
@@ -203,11 +205,14 @@ class StandupSummaryService
         $response->forceFill(['late_summary_posted_at' => now()])->save();
     }
 
+    /**
+     * @return Collection<int, StandupResponse>
+     */
     private function responsesAtCheckpoint(StandupRun $run): Collection
     {
         return $run->responses
             ->filter(fn ($response): bool => $response->status === 'submitted'
-                && (! $run->summary_due_at || $response->submitted_at?->lessThanOrEqualTo($run->summary_due_at)))
+                && (! $run->summary_due_at || ($response->submitted_at && Carbon::parse($response->submitted_at)->lessThanOrEqualTo(Carbon::parse($run->summary_due_at)))))
             ->sortBy('submitted_at');
     }
 
@@ -215,7 +220,7 @@ class StandupSummaryService
     {
         $lines = ['Late update from '.$response->user->name, ''];
 
-        foreach ($response->answers->sortBy(fn ($answer) => $answer->question?->sort_order ?? 0) as $answer) {
+        foreach ($response->answers->sortBy(fn ($answer) => $answer->question->sort_order) as $answer) {
             $lines[] = $this->summaryQuestionLabel($answer->question).': '.($answer->answer_text ?: '-');
         }
 
@@ -236,7 +241,7 @@ class StandupSummaryService
             '',
         ];
 
-        foreach ($response->answers->sortBy(fn ($answer) => $answer->question?->sort_order ?? 0) as $answer) {
+        foreach ($response->answers->sortBy(fn ($answer) => $answer->question->sort_order) as $answer) {
             $lines[] = '*'.$this->slackQuestionLabel($answer->question).'*';
             $lines[] = $answer->answer_text ?: '-';
             $lines[] = '';
@@ -245,6 +250,9 @@ class StandupSummaryService
         return trim(implode("\n", $lines));
     }
 
+    /**
+     * @param  Collection<int, StandupResponse>  $pending
+     */
     private function renderSlackPendingResponses(Collection $pending): string
     {
         $lines = ['*Pending standup responses*'];
@@ -256,21 +264,21 @@ class StandupSummaryService
         return implode("\n", $lines);
     }
 
-    private function slackQuestionLabel($question): string
+    private function slackQuestionLabel(StandupQuestion $question): string
     {
-        return rtrim($question?->question_text ?? 'Answer', " \t\n\r\0\x0B?");
+        return rtrim($question->question_text, " \t\n\r\0\x0B?");
     }
 
-    private function summaryQuestionLabel($question): string
+    private function summaryQuestionLabel(StandupQuestion $question): string
     {
-        return match ($question?->question_key) {
+        return match ($question->question_key) {
             'yesterday' => 'Yesterday',
             'today' => 'Today',
             'blocker' => 'Blockers',
             'blocker_detail' => 'Blocker details',
             'ticket' => 'Ticket',
             'mood' => 'Mood',
-            default => str($question?->question_text ?? 'Answer')
+            default => str($question->question_text)
                 ->replaceMatches('/\?$/', '')
                 ->ucfirst()
                 ->toString(),

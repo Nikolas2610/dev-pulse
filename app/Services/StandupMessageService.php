@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\IntegrationUser;
+use App\Models\StandupResponse;
 use App\Models\StandupRun;
 use App\Models\User;
 use App\Notifications\StandupPromptNotification;
@@ -82,7 +83,7 @@ class StandupMessageService
         Log::info('Standup pending notification dispatch started', [
             'standup_run_id' => $run->id,
             'standup_schedule_id' => $run->standup_schedule_id,
-            'delivery_method' => $run->schedule?->delivery_method ?? 'email',
+            'delivery_method' => $run->schedule->delivery_method ?? 'email',
             'pending_response_count' => $pendingCount,
             'reminder' => $reminder,
         ]);
@@ -96,7 +97,7 @@ class StandupMessageService
             return;
         }
 
-        match ($run->schedule?->delivery_method ?? 'email') {
+        match ($run->schedule->delivery_method ?? 'email') {
             'email' => $this->sendEmailMessages($run, $reminder),
             'slack_dm' => $this->sendSlackDirectMessages($run, $reminder),
             'slack_channel' => $this->sendSlackChannelMessage($run, $reminder),
@@ -113,8 +114,8 @@ class StandupMessageService
             return;
         }
 
-        $deliveryMethod = $run->schedule?->delivery_method ?? 'email';
-        $integration = $run->schedule?->targetIntegration;
+        $deliveryMethod = $run->schedule->delivery_method ?? 'email';
+        $integration = $run->schedule->targetIntegration;
 
         if (! in_array($deliveryMethod, ['slack_dm', 'slack_channel'], true) || ! $integration || $integration->provider !== 'slack') {
             foreach ($pendingUsers as $member) {
@@ -150,7 +151,7 @@ class StandupMessageService
 
     private function sendDiscordChannelMessage(StandupRun $run, bool $reminder): void
     {
-        $integration = $run->schedule?->targetIntegration;
+        $integration = $run->schedule->targetIntegration;
 
         if (! $integration || $integration->provider !== 'discord') {
             return;
@@ -161,9 +162,9 @@ class StandupMessageService
 
     private function sendSlackChannelMessage(StandupRun $run, bool $reminder): void
     {
-        $integration = $run->schedule?->targetIntegration;
+        $integration = $run->schedule->targetIntegration;
 
-        if (! $integration || $integration->provider !== 'slack' || ! $run->schedule?->promptChannel) {
+        if (! $integration || $integration->provider !== 'slack' || ! $run->schedule->promptChannel) {
             return;
         }
 
@@ -177,13 +178,13 @@ class StandupMessageService
 
     private function sendSlackDirectMessages(StandupRun $run, bool $reminder): void
     {
-        $integration = $run->schedule?->targetIntegration;
+        $integration = $run->schedule->targetIntegration;
 
         if (! $integration || $integration->provider !== 'slack') {
             Log::warning('Slack DM standup dispatch skipped: missing Slack integration', [
                 'standup_run_id' => $run->id,
                 'standup_schedule_id' => $run->standup_schedule_id,
-                'target_integration_id' => $run->schedule?->target_integration_id,
+                'target_integration_id' => $run->schedule->target_integration_id,
             ]);
 
             return;
@@ -249,7 +250,7 @@ class StandupMessageService
 
             $response->forceFill([
                 'raw_json' => [
-                    ...($response->raw_json ?? []),
+                    ...$this->responseRawJson($response),
                     'current_question_id' => $question->id,
                 ],
             ])->save();
@@ -273,7 +274,7 @@ class StandupMessageService
 
     private function responseSource(StandupRun $run): string
     {
-        return match ($run->schedule?->delivery_method ?? 'email') {
+        return match ($run->schedule->delivery_method ?? 'email') {
             'slack_dm', 'slack_channel' => 'slack',
             'discord_channel' => 'discord',
             default => 'email',
@@ -288,10 +289,18 @@ class StandupMessageService
         return "{$prefix}Submit today's standup for {$run->workspace->name}: {$url}";
     }
 
-    private function slackPromptText(StandupRun $run, bool $reminder): string
+    /**
+     * @return array<string, mixed>
+     */
+    private function responseRawJson(StandupResponse $response): array
     {
-        $prefix = $reminder ? 'Reminder: ' : '';
+        $rawJson = $response->getAttribute('raw_json');
 
-        return "{$prefix}Submit today's standup for {$run->workspace->name}.";
+        if (is_string($rawJson)) {
+            $decoded = json_decode($rawJson, true);
+            $rawJson = is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($rawJson) ? $rawJson : [];
     }
 }

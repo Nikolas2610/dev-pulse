@@ -2,9 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\StandupQuestion;
 use App\Models\StandupTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends Factory<StandupQuestion> */
 class StandupQuestionFactory extends Factory
 {
     public function definition(): array

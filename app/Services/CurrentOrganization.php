@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Organization;
 use App\Models\User;
 use App\Models\Workspace;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class CurrentOrganization
 {
@@ -30,11 +32,18 @@ class CurrentOrganization
 
     public function roleForUser(Organization $organization, User $user): ?string
     {
-        return $organization->users()
+        $pivot = $organization->users()
             ->whereKey($user->id)
             ->first()
-            ?->pivot
-            ?->role;
+            ?->pivot;
+
+        if (! $pivot instanceof Pivot) {
+            return null;
+        }
+
+        $role = $pivot->getAttribute('role');
+
+        return is_string($role) ? $role : null;
     }
 
     public function canManageOrganization(Organization $organization, User $user): bool
@@ -54,7 +63,10 @@ class CurrentOrganization
         );
     }
 
-    public function workspacesForUser(Organization $organization, User $user)
+    /**
+     * @return Collection<int, Workspace>
+     */
+    public function workspacesForUser(Organization $organization, User $user): Collection
     {
         if ($this->canManageOrganization($organization, $user)) {
             return $organization->workspaces()->orderBy('name')->get();
@@ -67,7 +79,10 @@ class CurrentOrganization
             ->get();
     }
 
-    public function manageableWorkspacesForUser(Organization $organization, User $user)
+    /**
+     * @return Collection<int, Workspace>
+     */
+    public function manageableWorkspacesForUser(Organization $organization, User $user): Collection
     {
         $organizationRole = $this->roleForUser($organization, $user);
 

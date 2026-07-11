@@ -31,14 +31,14 @@ class StandupTimingService
 
     public function snapshot(StandupRun $run, StandupSchedule $schedule): void
     {
-        $timing = $this->forDate($schedule, $run->run_date->toDateString());
+        $timing = $this->forDate($schedule, Carbon::parse($run->run_date)->toDateString());
 
         $this->persistSnapshot($run, $schedule, $timing['open'], $timing['summary']);
     }
 
     public function snapshotManual(StandupRun $run, StandupSchedule $schedule): void
     {
-        $scheduledTiming = $this->forDate($schedule, $run->run_date->toDateString());
+        $scheduledTiming = $this->forDate($schedule, Carbon::parse($run->run_date)->toDateString());
         $duration = (int) $scheduledTiming['open']->diffInMinutes($scheduledTiming['summary']);
         $open = now()->utc();
 
@@ -70,7 +70,12 @@ class StandupTimingService
     /** @return array<int, int> */
     public function offsets(StandupSchedule $schedule): array
     {
-        $offsets = $schedule->reminder_minutes_before_end;
+        $offsets = $schedule->getAttribute('reminder_minutes_before_end');
+
+        if (is_string($offsets)) {
+            $decoded = json_decode($offsets, true);
+            $offsets = is_array($decoded) ? $decoded : null;
+        }
 
         if (! is_array($offsets)) {
             $duration = max(1, (int) ($schedule->summary_minutes_after ?: 90));

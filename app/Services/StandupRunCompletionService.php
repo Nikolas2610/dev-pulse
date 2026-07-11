@@ -13,7 +13,7 @@ class StandupRunCompletionService
             'responses as pending_responses_count' => fn ($query) => $query->where('status', 'pending'),
         ]);
 
-        if ($run->responses_count === 0 || $run->pending_responses_count > 0) {
+        if ($run->responses_count === 0 || (int) $run->getAttribute('pending_responses_count') > 0) {
             return;
         }
 

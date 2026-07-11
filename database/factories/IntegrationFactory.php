@@ -2,10 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\Integration;
 use App\Models\Organization;
 use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends Factory<Integration> */
 class IntegrationFactory extends Factory
 {
     public function definition(): array

@@ -71,7 +71,7 @@ class ScheduleController extends Controller
     public function store(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_unless($organization !== null, 403);
         abort_unless($currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $validated = $request->validate([
@@ -485,7 +485,8 @@ class ScheduleController extends Controller
         $integration = isset($validated['target_integration_id'])
             ? Integration::query()
                 ->where('organization_id', $organizationId)
-                ->find($validated['target_integration_id'])
+                ->whereKey((int) $validated['target_integration_id'])
+                ->first()
             : null;
         $errors = [];
 

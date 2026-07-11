@@ -527,7 +527,7 @@ class SlackIntegrationService
                     'type' => 'plain_text',
                     'text' => 'Choose an answer',
                 ],
-                'options' => $this->slackSelectOptions($question->options_json ?? []),
+                'options' => $this->slackSelectOptions($this->questionOptions($question)),
             ];
         }
 
@@ -539,7 +539,7 @@ class SlackIntegrationService
                     'type' => 'plain_text',
                     'text' => 'Choose answers',
                 ],
-                'options' => $this->slackSelectOptions($question->options_json ?? []),
+                'options' => $this->slackSelectOptions($this->questionOptions($question)),
             ];
         }
 
@@ -569,6 +569,23 @@ class SlackIntegrationService
                 'value' => mb_substr($option, 0, 75),
             ])
             ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function questionOptions(StandupQuestion $question): array
+    {
+        $options = $question->getAttribute('options_json');
+
+        if (is_string($options)) {
+            $decoded = json_decode($options, true);
+            $options = is_array($decoded) ? $decoded : [];
+        }
+
+        return collect(is_array($options) ? $options : [])
+            ->map(fn ($option): string => (string) $option)
             ->all();
     }
 }

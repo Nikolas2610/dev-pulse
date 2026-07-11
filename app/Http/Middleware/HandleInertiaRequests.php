@@ -83,7 +83,7 @@ class HandleInertiaRequests extends Middleware
                 'organizationRole' => $organization && $user
                     ? $roleAccess->organizationRole($organization, $user)
                     : null,
-                'workspaceRole' => $currentWorkspace && $user
+                'workspaceRole' => $currentWorkspace
                     ? $roleAccess->workspaceRole($currentWorkspace, $user)
                     : null,
                 'capabilities' => $roleAccess->capabilities($organization, $currentWorkspace, $user),

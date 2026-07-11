@@ -7,6 +7,7 @@ use App\Services\StandupMessageService;
 use App\Services\StandupReminderMessageService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Carbon;
 use Throwable;
 
 class SendStandupRunReminderJob implements ShouldQueue
@@ -25,11 +26,11 @@ class SendStandupRunReminderJob implements ShouldQueue
             return;
         }
 
-        if ($reminder->scheduled_for->isFuture()) {
+        if (Carbon::parse($reminder->scheduled_for)->isFuture()) {
             return;
         }
 
-        if ($reminder->run->status !== 'active' || ! $reminder->run->summary_due_at || $reminder->scheduled_for->greaterThanOrEqualTo($reminder->run->summary_due_at)) {
+        if ($reminder->run->status !== 'active' || ! $reminder->run->summary_due_at || Carbon::parse($reminder->scheduled_for)->greaterThanOrEqualTo(Carbon::parse($reminder->run->summary_due_at))) {
             $reminder->update(['status' => 'skipped']);
 
             return;

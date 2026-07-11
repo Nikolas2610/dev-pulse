@@ -29,7 +29,7 @@ class WorkspaceController extends Controller
     public function store(Request $request, CurrentOrganization $currentOrganization): RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_unless($organization !== null, 403);
         abort_unless($currentOrganization->canManageOrganization($organization, $request->user()), 403);
 
         $validated = $request->validate([

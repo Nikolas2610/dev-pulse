@@ -36,7 +36,7 @@ class DiscordIntegrationController extends Controller
         abort_unless($organization && $currentOrganization->canManageCurrentWorkspace($organization, $request->user()), 403);
 
         $workspace = $currentOrganization->currentWorkspaceForUser($organization, $request->user());
-        abort_unless($workspace, 403);
+        abort_unless($workspace !== null, 403);
 
         $existingIntegration = $this->workspaceIntegration($organization->id, $workspace->id);
 
