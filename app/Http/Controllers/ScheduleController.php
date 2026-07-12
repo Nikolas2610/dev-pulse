@@ -177,6 +177,8 @@ class ScheduleController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'timezone' => TimezoneRules::required(),
             'time_of_day' => ['required', 'date_format:H:i'],
+            'days_of_week' => ['required', 'array', 'min:1'],
+            'days_of_week.*' => ['integer', 'between:1,7'],
             'end_time_of_day' => ['nullable', 'date_format:H:i'],
             'reminder_minutes_before_end' => ['nullable', 'array', 'min:1'],
             'reminder_minutes_before_end.*' => ['integer', 'min:1'],

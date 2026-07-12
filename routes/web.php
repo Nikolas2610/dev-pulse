@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\IndexDataController;
+use App\Http\Controllers\AutomationHealthController;
 use App\Http\Controllers\ContextController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiscordIntegrationController;
@@ -68,6 +69,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('templates/{template}', [TemplateController::class, 'destroy'])->name('templates.destroy');
     });
     Route::middleware('role-capability:manageSchedules')->group(function () {
+        Route::get('automation-health', AutomationHealthController::class)->name('automation-health.index');
         Route::get('schedules', [ScheduleController::class, 'index'])->name('schedules.index');
         Route::post('schedules', [ScheduleController::class, 'store'])->name('schedules.store');
         Route::get('schedules/{schedule}/edit', [ScheduleController::class, 'edit'])->name('schedules.edit');

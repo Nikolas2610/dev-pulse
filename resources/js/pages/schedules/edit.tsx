@@ -13,6 +13,7 @@ import {
     defaultReminderTemplate,
     ReminderSettings,
 } from '@/pages/schedules/reminder-settings';
+import { WeekdayPicker } from '@/pages/schedules/weekday-picker';
 
 export default function SchedulesEdit({
     schedule,
@@ -28,6 +29,7 @@ export default function SchedulesEdit({
         timezone: schedule.timezone,
         time_of_day: String(schedule.time_of_day).slice(0, 5),
         end_time_of_day: String(schedule.end_time_of_day).slice(0, 5),
+        days_of_week: (schedule.days_of_week ?? [1, 2, 3, 4, 5]).map(Number),
         reminder_minutes_before_end: schedule.reminder_minutes_before_end ?? [
             60, 30, 15, 5,
         ],
@@ -165,6 +167,11 @@ export default function SchedulesEdit({
                                 }
                             />
                         </FormGrid>
+                        <WeekdayPicker
+                            value={data.days_of_week}
+                            error={errors.days_of_week}
+                            onChange={(days) => setData('days_of_week', days)}
+                        />
                         <ReminderSettings
                             offsets={data.reminder_minutes_before_end}
                             template={data.reminder_message_template}
