@@ -97,10 +97,12 @@ class FortifyServiceProvider extends ServiceProvider
             ->map(function (User $user) {
                 $organizationRole = $user->organizations
                     ->firstWhere('id', $user->current_organization_id)
-                    ?->pivot?->role;
+                    ?->getRelationValue('pivot')
+                    ?->getAttribute('role');
                 $workspaceRole = $user->workspaces
                     ->firstWhere('id', $user->current_workspace_id)
-                    ?->pivot?->role;
+                    ?->getRelationValue('pivot')
+                    ?->getAttribute('role');
                 $role = in_array($organizationRole, ['owner', 'admin'], true)
                     ? $organizationRole
                     : ($workspaceRole === 'manager' || $organizationRole === 'manager' ? 'manager' : 'member');
