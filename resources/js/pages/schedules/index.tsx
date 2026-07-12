@@ -46,6 +46,10 @@ import {
     defaultReminderTemplate,
     ReminderSettings,
 } from '@/pages/schedules/reminder-settings';
+import {
+    formatWeekdays,
+    WeekdayPicker,
+} from '@/pages/schedules/weekday-picker';
 
 export default function SchedulesIndex({
     indexEndpoint,
@@ -295,6 +299,13 @@ export default function SchedulesIndex({
                                             }
                                         />
                                     </FormGrid>
+                                    <WeekdayPicker
+                                        value={data.days_of_week}
+                                        error={errors.days_of_week}
+                                        onChange={(days) =>
+                                            setData('days_of_week', days)
+                                        }
+                                    />
                                     <ReminderSettings
                                         offsets={
                                             data.reminder_minutes_before_end
@@ -555,6 +566,10 @@ export default function SchedulesIndex({
                                         - {schedule.timezone}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
+                                        {formatWeekdays(
+                                            schedule.days_of_week,
+                                        )}
+                                        {' · '}
                                         {deliveryMethodLabels[
                                             schedule.delivery_method ?? 'email'
                                         ] ?? 'Email'}

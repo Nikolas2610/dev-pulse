@@ -6,6 +6,7 @@ import {
     ClipboardList,
     LayoutGrid,
     MessageSquare,
+    Activity,
     ChartNoAxesCombined,
     Plug,
     Users,
@@ -57,6 +58,12 @@ const mainNavItems: RoleNavItem[] = [
         title: 'Schedules',
         href: '/schedules',
         icon: CalendarClock,
+        capability: 'manageSchedules',
+    },
+    {
+        title: 'Automation Health',
+        href: '/automation-health',
+        icon: Activity,
         capability: 'manageSchedules',
     },
     {
