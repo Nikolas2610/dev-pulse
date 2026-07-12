@@ -16,7 +16,7 @@ class AutomationHealthController extends Controller
     public function __invoke(Request $request, CurrentOrganization $currentOrganization): Response
     {
         $organization = $currentOrganization->fromRequest($request);
-        abort_unless($organization, 403);
+        abort_if($organization === null, 403);
 
         $heartbeat = AutomationExecution::query()
             ->where('task', 'scheduler.heartbeat')
