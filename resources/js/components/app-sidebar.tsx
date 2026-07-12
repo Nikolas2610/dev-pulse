@@ -4,6 +4,8 @@ import {
     BriefcaseBusiness,
     CalendarClock,
     ClipboardList,
+    GitPullRequest,
+    ListTodo,
     LayoutGrid,
     MessageSquare,
     ChartNoAxesCombined,
@@ -78,16 +80,32 @@ const mainNavItems: RoleNavItem[] = [
         capability: 'viewTeam',
     },
     {
-        title: 'Slack',
+        title: 'Integrations',
         href: '/integrations/slack',
         icon: Plug,
         capability: 'manageIntegrations',
-    },
-    {
-        title: 'Discord',
-        href: '/integrations/discord',
-        icon: Plug,
-        capability: 'manageIntegrations',
+        children: [
+            {
+                title: 'Slack',
+                href: '/integrations/slack',
+                icon: Plug,
+            },
+            {
+                title: 'Discord',
+                href: '/integrations/discord',
+                icon: Plug,
+            },
+            {
+                title: 'Jira',
+                href: '/integrations/jira',
+                icon: ListTodo,
+            },
+            {
+                title: 'Bitbucket',
+                href: '/integrations/bitbucket',
+                icon: GitPullRequest,
+            },
+        ],
     },
 ];
 

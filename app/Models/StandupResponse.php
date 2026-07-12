@@ -61,4 +61,10 @@ class StandupResponse extends Model
     {
         return $this->hasMany(StandupAnswer::class);
     }
+
+    /** @return HasMany<StandupResponseItem, $this> */
+    public function items(): HasMany
+    {
+        return $this->hasMany(StandupResponseItem::class);
+    }
 }

@@ -27,7 +27,8 @@ class SlackIntegrationController extends Controller
         $integration = $this->workspaceIntegration($organization?->id, $workspace?->id);
         $credentials = $this->oauthCredentials($integration);
 
-        return Inertia::render('integrations/slack', [
+        return Inertia::render('integrations/index', [
+            'provider' => 'slack',
             'integration' => $integration,
             'slackUsers' => $this->slackUsers($integration),
             'isConfigured' => filled($credentials['client_id']) && filled($credentials['client_secret']),

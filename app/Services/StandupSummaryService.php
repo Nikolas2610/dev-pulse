@@ -32,6 +32,7 @@ class StandupSummaryService
             'schedule.targetChannel',
             'responses.user',
             'responses.answers.question',
+            'responses.items',
         ]);
 
         $summaryText = $this->renderSummary($run);
@@ -134,6 +135,10 @@ class StandupSummaryService
                 $lines[] = '- *'.$this->summaryQuestionLabel($answer->question).':* '.($answer->answer_text ?: '-');
             }
 
+            foreach ($response->items as $item) {
+                $lines[] = '- *'.ucfirst(str_replace('_', ' ', $item->relation)).':* '.($item->external_key ? $item->external_key.' ' : '').$item->title_snapshot.' ('.$item->url_snapshot.')';
+            }
+
             $lines[] = '';
         }
 
@@ -202,7 +207,7 @@ class StandupSummaryService
 
     public function postLateAddendum(StandupResponse $response): void
     {
-        $response->loadMissing('user', 'answers.question', 'run.schedule.targetIntegration', 'run.schedule.targetChannel');
+        $response->loadMissing('user', 'answers.question', 'items', 'run.schedule.targetIntegration', 'run.schedule.targetChannel');
         $run = $response->run;
         $integration = $run->schedule?->targetIntegration;
         $channel = $run->schedule?->targetChannel;
@@ -245,6 +250,12 @@ class StandupSummaryService
             $lines[] = $this->summaryQuestionLabel($answer->question).': '.($answer->answer_text ?: '-');
         }
 
+        foreach ($response->items as $item) {
+            $lines[] = '*'.ucfirst(str_replace('_', ' ', $item->relation)).'*';
+            $lines[] = '<'.$item->url_snapshot.'|'.($item->external_key ? $item->external_key.' ' : '').$item->title_snapshot.'> · '.$item->status_snapshot;
+            $lines[] = '';
+        }
+
         return trim(implode(PHP_EOL, $lines));
     }
 
@@ -265,6 +276,12 @@ class StandupSummaryService
         foreach ($response->answers->sortBy(fn ($answer) => $answer->question->sort_order) as $answer) {
             $lines[] = '*'.$this->slackQuestionLabel($answer->question).'*';
             $lines[] = $answer->answer_text ?: '-';
+            $lines[] = '';
+        }
+
+        foreach ($response->items as $item) {
+            $lines[] = '*'.ucfirst(str_replace('_', ' ', $item->relation)).'*';
+            $lines[] = '<'.$item->url_snapshot.'|'.($item->external_key ? $item->external_key.' ' : '').$item->title_snapshot.'> · '.$item->status_snapshot;
             $lines[] = '';
         }
 

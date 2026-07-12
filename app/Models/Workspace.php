@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['organization_id', 'name', 'slug', 'timezone', 'is_active'])]
+#[Fillable(['organization_id', 'name', 'slug', 'timezone', 'is_active', 'stale_pr_days'])]
 /**
  * @property int $id
  * @property int $organization_id
@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $slug
  * @property string $timezone
  * @property bool $is_active
+ * @property int $stale_pr_days
  */
 class Workspace extends Model
 {
@@ -45,5 +46,17 @@ class Workspace extends Model
     public function templates(): HasMany
     {
         return $this->hasMany(StandupTemplate::class);
+    }
+
+    /** @return BelongsToMany<JiraProject, $this> */
+    public function jiraProjects(): BelongsToMany
+    {
+        return $this->belongsToMany(JiraProject::class, 'workspace_jira_project')->withTimestamps();
+    }
+
+    /** @return BelongsToMany<BitbucketRepository, $this> */
+    public function bitbucketRepositories(): BelongsToMany
+    {
+        return $this->belongsToMany(BitbucketRepository::class, 'workspace_bitbucket_repository')->withTimestamps();
     }
 }

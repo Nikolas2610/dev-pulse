@@ -39,6 +39,15 @@ type DashboardProps = {
             completedRuns: number;
         };
     };
+    engineeringWork: {
+        jiraOpen: number;
+        pullRequests: number;
+        blocked: number;
+        pendingReviews: number;
+        stalePullRequests: number;
+        lastSyncedAt: string | null;
+        items: any[];
+    } | null;
 };
 
 const nonBlockerAnswers = new Set([
@@ -58,6 +67,7 @@ export default function Dashboard({
     todayRun,
     latestSummary,
     stats,
+    engineeringWork,
 }: DashboardProps) {
     const submittedResponses = (todayRun?.responses ?? []).filter(
         (response: any) => response.status === 'submitted',
@@ -187,6 +197,100 @@ export default function Dashboard({
                     </div>
                 </section>
 
+                {engineeringWork && (
+                    <section aria-labelledby="engineering-work-title">
+                        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                            <div>
+                                <h2
+                                    id="engineering-work-title"
+                                    className="font-semibold"
+                                >
+                                    Engineering work
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Live Jira workload and Bitbucket review
+                                    queue.
+                                </p>
+                            </div>
+                            {engineeringWork.lastSyncedAt && (
+                                <Badge variant="outline">
+                                    Synced{' '}
+                                    {new Date(
+                                        engineeringWork.lastSyncedAt,
+                                    ).toLocaleString()}
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                            <WorkMetric
+                                label="Jira open"
+                                value={engineeringWork.jiraOpen}
+                            />
+                            <WorkMetric
+                                label="Open PRs"
+                                value={engineeringWork.pullRequests}
+                            />
+                            <WorkMetric
+                                label="Reviews"
+                                value={engineeringWork.pendingReviews}
+                            />
+                            <WorkMetric
+                                label="Blocked"
+                                value={engineeringWork.blocked}
+                            />
+                            <WorkMetric
+                                label="Stale PRs"
+                                value={engineeringWork.stalePullRequests}
+                            />
+                        </div>
+                        {engineeringWork.items.length > 0 && (
+                            <Card className="mt-4">
+                                <CardHeader>
+                                    <CardTitle>Needs attention</CardTitle>
+                                    <CardDescription>
+                                        Recently updated and blocked work across
+                                        this workspace.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-3">
+                                    {engineeringWork.items.map((item) => (
+                                        <a
+                                            key={item.id}
+                                            href={item.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex flex-col gap-1 rounded-lg border p-3 hover:bg-muted/50"
+                                        >
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Badge variant="outline">
+                                                    {item.external_key ??
+                                                        item.provider}
+                                                </Badge>
+                                                <Badge variant="secondary">
+                                                    {item.status}
+                                                </Badge>
+                                                {item.is_blocked && (
+                                                    <Badge variant="destructive">
+                                                        Blocked
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <span className="font-medium">
+                                                {item.title}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {item.assignee?.user?.name ??
+                                                    item.author?.user?.name ??
+                                                    'Unmapped user'}
+                                            </span>
+                                        </a>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        )}
+                    </section>
+                )}
+
                 {todayRun ? (
                     <>
                         <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
@@ -241,6 +345,39 @@ export default function Dashboard({
                                                                         {answer.answer_text ||
                                                                             '-'}
                                                                     </div>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                        {response.items?.map(
+                                                            (item: any) => (
+                                                                <div
+                                                                    key={
+                                                                        item.id
+                                                                    }
+                                                                >
+                                                                    <div className="text-xs font-semibold text-muted-foreground">
+                                                                        {String(
+                                                                            item.relation,
+                                                                        ).replaceAll(
+                                                                            '_',
+                                                                            ' ',
+                                                                        )}
+                                                                    </div>
+                                                                    <a
+                                                                        href={
+                                                                            item.url_snapshot
+                                                                        }
+                                                                        target="_blank"
+                                                                        rel="noreferrer"
+                                                                        className="text-sm font-medium hover:underline"
+                                                                    >
+                                                                        {
+                                                                            item.external_key
+                                                                        }{' '}
+                                                                        {
+                                                                            item.title_snapshot
+                                                                        }
+                                                                    </a>
                                                                 </div>
                                                             ),
                                                         )}
@@ -325,6 +462,17 @@ export default function Dashboard({
                 )}
             </div>
         </>
+    );
+}
+
+function WorkMetric({ label, value }: { label: string; value: number }) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardDescription>{label}</CardDescription>
+                <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
+            </CardHeader>
+        </Card>
     );
 }
 
