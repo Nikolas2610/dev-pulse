@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\IndexDataController;
+use App\Http\Controllers\AutomationHealthController;
 use App\Http\Controllers\ContextController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiscordIntegrationController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\SlackInteractionController;
 use App\Http\Controllers\StandupRunController;
 use App\Http\Controllers\StandupSubmissionController;
 use App\Http\Controllers\TeamMemberController;
+use App\Http\Controllers\TeamStandupController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceSettingsController;
@@ -56,6 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('standups/{run}', [StandupRunController::class, 'show'])->name('standups.show');
         Route::get('standup-runs/{run}/submit', [StandupSubmissionController::class, 'create'])->name('standup-runs.submit');
         Route::post('standup-runs/{run}/submit', [StandupSubmissionController::class, 'store'])->name('standup-runs.submit.store');
+        Route::post('standup-runs/{run}/skip', [StandupSubmissionController::class, 'skip'])->name('standup-runs.skip');
     });
     Route::middleware('role-capability:manageTemplates')->group(function () {
         Route::get('templates', [TemplateController::class, 'index'])->name('templates.index');
@@ -66,6 +69,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('templates/{template}', [TemplateController::class, 'destroy'])->name('templates.destroy');
     });
     Route::middleware('role-capability:manageSchedules')->group(function () {
+        Route::get('automation-health', AutomationHealthController::class)->name('automation-health.index');
         Route::get('schedules', [ScheduleController::class, 'index'])->name('schedules.index');
         Route::post('schedules', [ScheduleController::class, 'store'])->name('schedules.store');
         Route::get('schedules/{schedule}/edit', [ScheduleController::class, 'edit'])->name('schedules.edit');
@@ -78,6 +82,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::middleware('role-capability:viewTeam')->group(function () {
         Route::get('team-members', [TeamMemberController::class, 'index'])->name('team-members.index');
+        Route::get('team-standups', TeamStandupController::class)->name('team-standups.index');
     });
     Route::middleware('role-capability:manageTeam')->group(function () {
         Route::post('team-members', [TeamMemberController::class, 'store'])->name('team-members.store');

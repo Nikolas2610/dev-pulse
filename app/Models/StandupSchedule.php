@@ -7,27 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable([
-    'organization_id',
-    'workspace_id',
-    'standup_template_id',
-    'name',
-    'timezone',
-    'time_of_day',
-    'end_time_of_day',
-    'days_of_week',
-    'recipient_mode',
-    'delivery_method',
-    'reminder_minutes_after',
-    'summary_minutes_after',
-    'reminder_minutes_before_end',
-    'reminder_message_template',
-    'target_integration_id',
-    'prompt_channel_id',
-    'target_channel_id',
-    'is_active',
-    'created_by_user_id',
-])]
 /**
  * @property int $id
  * @property int $organization_id
@@ -49,6 +28,27 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int|null $target_channel_id
  * @property bool $is_active
  */
+#[Fillable([
+    'organization_id',
+    'workspace_id',
+    'standup_template_id',
+    'name',
+    'timezone',
+    'time_of_day',
+    'end_time_of_day',
+    'days_of_week',
+    'recipient_mode',
+    'delivery_method',
+    'reminder_minutes_after',
+    'summary_minutes_after',
+    'reminder_minutes_before_end',
+    'reminder_message_template',
+    'target_integration_id',
+    'prompt_channel_id',
+    'target_channel_id',
+    'is_active',
+    'created_by_user_id',
+])]
 class StandupSchedule extends Model
 {
     protected function casts(): array

@@ -3,8 +3,10 @@ import {
     BookOpen,
     BriefcaseBusiness,
     CalendarClock,
+    ClipboardList,
     LayoutGrid,
     MessageSquare,
+    Activity,
     ChartNoAxesCombined,
     Plug,
     Users,
@@ -59,6 +61,12 @@ const mainNavItems: RoleNavItem[] = [
         capability: 'manageSchedules',
     },
     {
+        title: 'Automation Health',
+        href: '/automation-health',
+        icon: Activity,
+        capability: 'manageSchedules',
+    },
+    {
         title: 'Workspaces',
         href: '/workspaces',
         icon: BriefcaseBusiness,
@@ -68,6 +76,12 @@ const mainNavItems: RoleNavItem[] = [
         title: 'Team Members',
         href: '/team-members',
         icon: Users,
+        capability: 'viewTeam',
+    },
+    {
+        title: 'Team Standups',
+        href: '/team-standups',
+        icon: ClipboardList,
         capability: 'viewTeam',
     },
     {

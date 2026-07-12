@@ -14,6 +14,8 @@ class ActivityEventService
 
     public const STANDUP_RESPONSE_SUBMITTED = 'standup.response.submitted';
 
+    public const STANDUP_RESPONSE_SKIPPED = 'standup.response.skipped';
+
     public const STANDUP_SUMMARY_POSTED = 'standup.summary.posted';
 
     public const SLACK_USER_SYNCED = 'slack.user.synced';

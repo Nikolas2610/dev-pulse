@@ -116,12 +116,14 @@ class StandupSummaryService
     {
         $recipients = $run->responses->map(fn ($response) => $response->user)->filter();
         $responses = $this->responsesAtCheckpoint($run);
-        $pending = $run->responses->reject(fn ($response) => $responses->contains('id', $response->id))
+        $skipped = $run->responses->where('status', 'skipped')->sortBy(fn ($response) => $response->user?->name);
+        $completedCount = $responses->count() + $skipped->count();
+        $pending = $run->responses->where('status', 'pending')
             ->sortBy(fn ($response) => $response->user?->name);
         $lines = [
             "*Daily standup - {$run->workspace->name}*",
             Carbon::parse($run->run_date)->toDateString(),
-            "Completed: *{$responses->count()}/{$recipients->count()}*",
+            "Completed: *{$completedCount}/{$recipients->count()}*",
             '',
         ];
 
@@ -130,6 +132,16 @@ class StandupSummaryService
 
             foreach ($response->answers->sortBy(fn ($answer) => $answer->question->sort_order) as $answer) {
                 $lines[] = '- *'.$this->summaryQuestionLabel($answer->question).':* '.($answer->answer_text ?: '-');
+            }
+
+            $lines[] = '';
+        }
+
+        if ($skipped->isNotEmpty()) {
+            $lines[] = '*Skipped responses*';
+
+            foreach ($skipped as $response) {
+                $lines[] = '- '.$response->user?->name;
             }
 
             $lines[] = '';
@@ -152,7 +164,8 @@ class StandupSummaryService
         IntegrationChannel $channel,
     ): ?string {
         $responses = $this->responsesAtCheckpoint($run);
-        $pending = $run->responses->reject(fn ($response) => $responses->contains('id', $response->id))
+        $skipped = $run->responses->where('status', 'skipped')->sortBy(fn ($response) => $response->user?->name);
+        $pending = $run->responses->where('status', 'pending')
             ->sortBy(fn ($response) => $response->user?->name);
         $integrationUsers = $integration->users()
             ->whereNotNull('user_id')
@@ -165,6 +178,14 @@ class StandupSummaryService
                 $integration,
                 $channel->external_channel_id,
                 $this->renderSlackSubmittedResponse($response, $integrationUsers),
+            );
+        }
+
+        if ($skipped->isNotEmpty()) {
+            $messageIds[] = $this->slack->postMessage(
+                $integration,
+                $channel->external_channel_id,
+                $this->renderSlackSkippedResponses($skipped, $integrationUsers),
             );
         }
 
@@ -259,6 +280,25 @@ class StandupSummaryService
         $lines = ['*Pending standup responses*'];
 
         foreach ($pending as $response) {
+            $slackUser = $integrationUsers->get($response->user_id);
+            $memberLabel = $slackUser?->external_user_id
+                ? '<@'.$slackUser->external_user_id.'>'
+                : $response->user?->name;
+            $lines[] = '- '.$memberLabel;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  Collection<int, StandupResponse>  $skipped
+     * @param  Collection<int, IntegrationUser>  $integrationUsers
+     */
+    private function renderSlackSkippedResponses(Collection $skipped, Collection $integrationUsers): string
+    {
+        $lines = ['*Skipped standup responses*'];
+
+        foreach ($skipped as $response) {
             $slackUser = $integrationUsers->get($response->user_id);
             $memberLabel = $slackUser?->external_user_id
                 ? '<@'.$slackUser->external_user_id.'>'

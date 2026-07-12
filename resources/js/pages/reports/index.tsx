@@ -26,7 +26,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { ChartContainer } from '@/components/ui/chart';
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+} from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import {
     Select,
@@ -76,8 +80,21 @@ type ReportProps = {
 
 const trendConfig = {
     completion: { label: 'Completion', color: 'var(--chart-1)' },
+    responses: { label: 'Responses', color: 'var(--chart-2)' },
     blockers: { label: 'Blockers', color: 'var(--chart-4)' },
 } satisfies ChartConfig;
+
+const weeklyConfig = {
+    rate: { label: 'Response rate', color: 'var(--chart-1)' },
+} satisfies ChartConfig;
+
+const weekdayNames: Record<string, string> = {
+    Mon: 'Monday',
+    Tue: 'Tuesday',
+    Wed: 'Wednesday',
+    Thu: 'Thursday',
+    Fri: 'Friday',
+};
 
 const initials = (name: string) =>
     name
@@ -96,13 +113,17 @@ export default function Reports({
     team,
 }: ReportProps) {
     const changeIsPositive = metrics.completionChange >= 0;
+    const weekdayData = weekdays.map((item) => ({
+        ...item,
+        day: weekdayNames[item.day] ?? item.day,
+    }));
 
     return (
         <>
             <Head title="Reports" />
-            <div className="dp-page">
+            <div className="dp-page min-w-0 overflow-x-hidden">
                 <div className="dp-page-header">
-                    <div>
+                    <div className="min-w-0">
                         <div className="dp-kicker">Team intelligence</div>
                         <h1 className="dp-title">Participation reports</h1>
                         <p className="dp-subtitle">
@@ -110,7 +131,7 @@ export default function Reports({
                             may need a nudge before habits slip.
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full items-center gap-3 sm:w-auto">
                         <span className="hidden text-sm text-muted-foreground sm:inline">
                             {period.start}–{period.end}
                         </span>
@@ -125,7 +146,7 @@ export default function Reports({
                             }
                         >
                             <SelectTrigger
-                                className="w-36"
+                                className="w-full sm:w-36"
                                 aria-label="Report period"
                             >
                                 <SelectValue />
@@ -178,10 +199,10 @@ export default function Reports({
                     />
                 </section>
 
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.75fr)]">
-                    <Card>
-                        <CardHeader className="flex-row items-start justify-between">
-                            <div>
+                <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.75fr)]">
+                    <Card className="min-w-0 overflow-hidden">
+                        <CardHeader className="flex-col items-start justify-between gap-3 sm:flex-row">
+                            <div className="min-w-0">
                                 <CardTitle>Participation trend</CardTitle>
                                 <CardDescription>
                                     Daily completion rate and blocker volume.
@@ -191,14 +212,15 @@ export default function Reports({
                                 {workspace ?? 'Current workspace'}
                             </Badge>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="px-2 sm:px-6">
                             <ChartContainer
                                 config={trendConfig}
-                                className="h-72 w-full"
+                                className="h-56 w-full min-w-0 sm:h-72"
                             >
                                 <AreaChart
                                     data={daily}
-                                    margin={{ left: -20, right: 8 }}
+                                    margin={{ left: -24, right: 4 }}
+                                    accessibilityLayer
                                 >
                                     <defs>
                                         <linearGradient
@@ -233,6 +255,32 @@ export default function Reports({
                                         axisLine={false}
                                         tickFormatter={(value) => `${value}%`}
                                     />
+                                    <ChartTooltip
+                                        cursor={{
+                                            stroke: 'var(--border)',
+                                            strokeDasharray: '4 4',
+                                        }}
+                                        content={
+                                            <ChartTooltipContent
+                                                items={[
+                                                    {
+                                                        key: 'completion',
+                                                        label: 'Completion',
+                                                        format: (value) =>
+                                                            `${Number(value)}%`,
+                                                    },
+                                                    {
+                                                        key: 'responses',
+                                                        label: 'Responses',
+                                                    },
+                                                    {
+                                                        key: 'blockers',
+                                                        label: 'Blockers',
+                                                    },
+                                                ]}
+                                            />
+                                        }
+                                    />
                                     <Area
                                         dataKey="completion"
                                         type="monotone"
@@ -245,22 +293,23 @@ export default function Reports({
                         </CardContent>
                     </Card>
 
-                    <Card className="overflow-hidden">
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader>
                             <CardTitle>Weekly rhythm</CardTitle>
                             <CardDescription>
                                 Average response rate by weekday.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0 px-3 sm:px-6">
                             <ChartContainer
-                                config={trendConfig}
-                                className="h-44 w-full"
+                                config={weeklyConfig}
+                                className="h-44 w-full min-w-0"
                             >
                                 <BarChart
-                                    data={weekdays}
+                                    data={weekdayData}
                                     layout="vertical"
-                                    margin={{ left: -12, right: 8 }}
+                                    margin={{ left: 0, right: 8 }}
+                                    accessibilityLayer
                                 >
                                     <XAxis
                                         type="number"
@@ -272,14 +321,29 @@ export default function Reports({
                                         dataKey="day"
                                         tickLine={false}
                                         axisLine={false}
-                                        width={38}
+                                        width={72}
+                                    />
+                                    <ChartTooltip
+                                        cursor={{ fill: 'var(--muted)' }}
+                                        content={
+                                            <ChartTooltipContent
+                                                items={[
+                                                    {
+                                                        key: 'rate',
+                                                        label: 'Response rate',
+                                                        format: (value) =>
+                                                            `${Number(value)}%`,
+                                                    },
+                                                ]}
+                                            />
+                                        }
                                     />
                                     <Bar
                                         dataKey="rate"
                                         radius={3}
                                         background={{ fill: 'var(--muted)' }}
                                     >
-                                        {weekdays.map((item) => (
+                                        {weekdayData.map((item) => (
                                             <Cell
                                                 key={item.day}
                                                 fill={
@@ -292,10 +356,10 @@ export default function Reports({
                                     </Bar>
                                 </BarChart>
                             </ChartContainer>
-                            <div className="mt-4 border-t pt-4 text-sm text-muted-foreground">
+                            <div className="mt-4 min-w-0 border-t pt-4 text-sm break-words text-muted-foreground">
                                 The weakest weekday is{' '}
                                 <strong className="font-medium text-foreground">
-                                    {[...weekdays].sort(
+                                    {[...weekdayData].sort(
                                         (a, b) => a.rate - b.rate,
                                     )[0]?.day ?? '—'}
                                 </strong>
@@ -306,7 +370,7 @@ export default function Reports({
                     </Card>
                 </div>
 
-                <Card>
+                <Card className="min-w-0 overflow-hidden">
                     <CardHeader>
                         <CardTitle>Member consistency</CardTitle>
                         <CardDescription>
@@ -315,80 +379,144 @@ export default function Reports({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="pl-6">
-                                        Member
-                                    </TableHead>
-                                    <TableHead>Responses</TableHead>
-                                    <TableHead>Participation</TableHead>
-                                    <TableHead>Typical delay</TableHead>
-                                    <TableHead className="pr-6 text-right">
-                                        Blockers
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {team.map((member) => (
-                                    <TableRow key={member.email}>
-                                        <TableCell className="pl-6">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="size-8">
-                                                    <AvatarFallback>
-                                                        {initials(member.name)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <div className="font-medium">
-                                                        {member.name}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {member.email}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-xs tabular-nums">
-                                            {member.submitted}/{member.expected}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                                                    <div
-                                                        className="h-full rounded-full bg-primary"
-                                                        style={{
-                                                            width: `${member.rate}%`,
-                                                        }}
-                                                    />
-                                                </div>
-                                                <span className="font-mono text-xs tabular-nums">
-                                                    {member.rate}%
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {member.avgMinutes} min
-                                        </TableCell>
-                                        <TableCell className="pr-6 text-right">
-                                            <Badge
-                                                variant={
-                                                    member.blockers > 3
-                                                        ? 'destructive'
-                                                        : 'secondary'
-                                                }
-                                            >
-                                                {member.blockers}
-                                            </Badge>
-                                        </TableCell>
+                        <div className="flex flex-col divide-y md:hidden">
+                            {team.map((member) => (
+                                <MemberMobileCard
+                                    key={member.email}
+                                    member={member}
+                                />
+                            ))}
+                        </div>
+                        <div className="hidden min-w-0 md:block">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="pl-6">
+                                            Member
+                                        </TableHead>
+                                        <TableHead>Responses</TableHead>
+                                        <TableHead>Participation</TableHead>
+                                        <TableHead>Typical delay</TableHead>
+                                        <TableHead className="pr-6 text-right">
+                                            Blockers
+                                        </TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {team.map((member) => (
+                                        <TableRow key={member.email}>
+                                            <TableCell className="pl-6">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar className="size-8">
+                                                        <AvatarFallback>
+                                                            {initials(
+                                                                member.name,
+                                                            )}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <div className="font-medium">
+                                                            {member.name}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {member.email}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-mono text-xs tabular-nums">
+                                                {member.submitted}/
+                                                {member.expected}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                                                        <div
+                                                            className="h-full rounded-full bg-primary"
+                                                            style={{
+                                                                width: `${member.rate}%`,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <span className="font-mono text-xs tabular-nums">
+                                                        {member.rate}%
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {member.avgMinutes} min
+                                            </TableCell>
+                                            <TableCell className="pr-6 text-right">
+                                                <Badge
+                                                    variant={
+                                                        member.blockers > 3
+                                                            ? 'destructive'
+                                                            : 'secondary'
+                                                    }
+                                                >
+                                                    {member.blockers}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
         </>
+    );
+}
+
+function MemberMobileCard({ member }: { member: ReportProps['team'][number] }) {
+    return (
+        <article className="flex min-w-0 flex-col gap-4 p-4">
+            <div className="flex min-w-0 items-center gap-3">
+                <Avatar className="size-9 shrink-0">
+                    <AvatarFallback>{initials(member.name)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{member.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                        {member.email}
+                    </div>
+                </div>
+                <Badge
+                    variant={member.blockers > 3 ? 'destructive' : 'secondary'}
+                >
+                    {member.blockers} blockers
+                </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+                <MemberStat
+                    label="Responses"
+                    value={`${member.submitted}/${member.expected}`}
+                />
+                <MemberStat label="Participation" value={`${member.rate}%`} />
+                <MemberStat
+                    label="Typical delay"
+                    value={`${member.avgMinutes}m`}
+                />
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${member.rate}%` }}
+                />
+            </div>
+        </article>
+    );
+}
+
+function MemberStat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="min-w-0">
+            <div className="truncate text-xs text-muted-foreground">
+                {label}
+            </div>
+            <div className="font-mono font-medium tabular-nums">{value}</div>
+        </div>
     );
 }
 

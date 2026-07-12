@@ -11,18 +11,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
-#[Fillable([
-    'organization_id',
-    'workspace_id',
-    'standup_schedule_id',
-    'standup_template_id',
-    'run_date',
-    'status',
-    'scheduled_open_at',
-    'opened_at',
-    'summary_due_at',
-    'summary_posted_at',
-])]
 /**
  * @property int $id
  * @property int $organization_id
@@ -36,6 +24,18 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $summary_due_at
  * @property Carbon|null $summary_posted_at
  */
+#[Fillable([
+    'organization_id',
+    'workspace_id',
+    'standup_schedule_id',
+    'standup_template_id',
+    'run_date',
+    'status',
+    'scheduled_open_at',
+    'opened_at',
+    'summary_due_at',
+    'summary_posted_at',
+])]
 class StandupRun extends Model
 {
     /** @use HasFactory<StandupRunFactory> */

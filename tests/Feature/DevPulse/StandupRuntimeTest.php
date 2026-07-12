@@ -1833,6 +1833,52 @@ class StandupRuntimeTest extends TestCase
         ]);
     }
 
+    public function test_user_can_skip_pending_standup(): void
+    {
+        [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
+        $run = StandupRun::factory()
+            ->for($organization)
+            ->for($workspace)
+            ->for($template)
+            ->create([
+                'status' => 'active',
+            ]);
+        $response = StandupResponse::create([
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'standup_run_id' => $run->id,
+            'user_id' => $user->id,
+            'status' => 'pending',
+            'source' => 'web',
+        ]);
+        $question = StandupQuestion::factory()->for($template)->create();
+        $response->answers()->create([
+            'standup_question_id' => $question->id,
+            'answer_text' => 'Draft answer',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('standup-runs.skip', $run))
+            ->assertRedirect(route('standups.show', $run));
+
+        $this->assertDatabaseHas('standup_responses', [
+            'id' => $response->id,
+            'status' => 'skipped',
+            'source' => 'web',
+        ]);
+        $this->assertDatabaseMissing('standup_answers', [
+            'standup_response_id' => $response->id,
+            'answer_text' => 'Draft answer',
+        ]);
+        $this->assertSame('completed', $run->refresh()->status);
+        $this->assertDatabaseHas('activity_events', [
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'user_id' => $user->id,
+            'event_type' => ActivityEventService::STANDUP_RESPONSE_SKIPPED,
+        ]);
+    }
+
     private function workspaceWithTemplate(): array
     {
         $organization = Organization::factory()->create();
