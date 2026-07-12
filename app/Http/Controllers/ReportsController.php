@@ -22,7 +22,7 @@ class ReportsController extends Controller
         $days = in_array((int) $request->integer('days', 30), [30, 60, 90], true)
             ? (int) $request->integer('days', 30)
             : 30;
-        $end = now($organization?->timezone ?? config('app.timezone'))->endOfDay();
+        $end = now($organization->timezone ?? config('app.timezone'))->endOfDay();
         $start = $end->copy()->subDays($days - 1)->startOfDay();
 
         $runs = StandupRun::query()
@@ -72,15 +72,15 @@ class ReportsController extends Controller
 
         $team = $responses->groupBy('user_id')->map(function (Collection $items) use ($blockerResponseIds) {
             $submittedItems = $items->where('status', 'submitted');
-            $turnaround = $submittedItems->filter(fn ($item) => $item->submitted_at)->avg(function ($item) {
+            $turnaround = $submittedItems->filter(fn (StandupResponse $item): bool => $item->submitted_at !== null)->avg(function (StandupResponse $item) {
                 $runDate = $item->submitted_at->copy()->startOfDay()->addHours(8)->addMinutes(30);
 
                 return max(0, $runDate->diffInMinutes($item->submitted_at, false));
             });
 
             return [
-                'name' => $items->first()->user?->name ?? 'Unknown member',
-                'email' => $items->first()->user?->email,
+                'name' => $items->first()->user->name ?? 'Unknown member',
+                'email' => $items->first()->user->email,
                 'submitted' => $submittedItems->count(),
                 'expected' => $items->count(),
                 'rate' => $items->count() ? (int) round($submittedItems->count() / $items->count() * 100) : 0,

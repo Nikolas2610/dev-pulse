@@ -8,18 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
-#[Fillable([
-    'organization_id',
-    'workspace_id',
-    'standup_run_id',
-    'user_id',
-    'status',
-    'submitted_at',
-    'late_summary_posted_at',
-    'source',
-    'external_message_id',
-    'raw_json',
-])]
 /**
  * @property int $id
  * @property int $organization_id
@@ -33,6 +21,18 @@ use Illuminate\Support\Carbon;
  * @property string|null $external_message_id
  * @property array<string, mixed>|null $raw_json
  */
+#[Fillable([
+    'organization_id',
+    'workspace_id',
+    'standup_run_id',
+    'user_id',
+    'status',
+    'submitted_at',
+    'late_summary_posted_at',
+    'source',
+    'external_message_id',
+    'raw_json',
+])]
 class StandupResponse extends Model
 {
     protected function casts(): array

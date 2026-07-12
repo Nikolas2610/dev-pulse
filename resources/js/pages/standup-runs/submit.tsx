@@ -1,5 +1,5 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Send } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { ArrowLeft, CircleSlash, Send } from 'lucide-react';
 import {
     FormMultiSelect,
     FormSelect,
@@ -81,10 +81,23 @@ export default function StandupSubmit({ run }: { run: any }) {
                                 Keep answers concise and specific.
                             </p>
                         </div>
-                        <Button disabled={processing}>
-                            <Send />
-                            Submit answers
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={processing}
+                                onClick={() =>
+                                    router.post(`/standup-runs/${run.id}/skip`)
+                                }
+                            >
+                                <CircleSlash />
+                                Skip standup
+                            </Button>
+                            <Button disabled={processing}>
+                                <Send />
+                                Submit answers
+                            </Button>
+                        </div>
                     </div>
                     <div className="dp-panel-body space-y-5">
                         {formErrors.standup_run && (
