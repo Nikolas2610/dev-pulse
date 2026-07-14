@@ -135,7 +135,7 @@ class StandupMessageService
             $integrationUser = $integrationUsers->get($member->id);
 
             if ($integrationUser?->external_user_id) {
-                $this->slack->sendDirectMessage($integration, $integrationUser->external_user_id, $message);
+                $this->slack->sendDirectStandupPrompt($integration, $integrationUser->external_user_id, $run, $this->slackMessageText($run, true));
             } else {
                 $member->notify(new StandupPromptNotification($run, true, $message));
             }
@@ -172,7 +172,7 @@ class StandupMessageService
             $integration,
             $run->schedule->promptChannel->external_channel_id,
             $run,
-            $this->messageText($run, $reminder),
+            $this->slackMessageText($run, $reminder),
         );
     }
 
@@ -212,48 +212,20 @@ class StandupMessageService
         ]);
 
         foreach ($integrationUsers as $integrationUser) {
-            $response = $run->responses()
-                ->with('answers')
-                ->where('user_id', $integrationUser->user_id)
-                ->first();
-            $question = $response ? $this->questionFlow->nextQuestionForResponse($run, $response) : null;
-
-            if (! $question) {
-                Log::info('Slack DM standup question skipped: no unanswered questions', [
-                    'standup_run_id' => $run->id,
-                    'integration_id' => $integration->id,
-                    'user_id' => $integrationUser->user_id,
-                ]);
-
-                continue;
-            }
-
-            $questions = $this->questionFlow->orderedQuestions($run);
-
             Log::info('Slack DM standup prompt sending', [
                 'standup_run_id' => $run->id,
                 'integration_id' => $integration->id,
                 'user_id' => $integrationUser->user_id,
                 'external_user_id' => $integrationUser->external_user_id,
-                'standup_question_id' => $question->id,
                 'reminder' => $reminder,
             ]);
 
-            $this->slack->sendDirectStandupQuestion(
+            $this->slack->sendDirectStandupPrompt(
                 $integration,
                 $integrationUser->external_user_id,
                 $run,
-                $question,
-                $questions->search(fn ($candidate) => $candidate->id === $question->id) + 1,
-                $questions->count(),
+                $this->slackMessageText($run, $reminder),
             );
-
-            $response->forceFill([
-                'raw_json' => [
-                    ...$this->responseRawJson($response),
-                    'current_question_id' => $question->id,
-                ],
-            ])->save();
         }
     }
 
@@ -287,6 +259,13 @@ class StandupMessageService
         $url = route('standup-runs.submit', $run);
 
         return "{$prefix}Submit today's standup for {$run->workspace->name}: {$url}";
+    }
+
+    private function slackMessageText(StandupRun $run, bool $reminder): string
+    {
+        $prefix = $reminder ? 'Reminder: ' : '';
+
+        return "{$prefix}{$run->workspace->name}'s daily standup is ready.";
     }
 
     /**
