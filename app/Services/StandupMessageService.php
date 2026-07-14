@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\IntegrationUser;
-use App\Models\StandupResponse;
 use App\Models\StandupRun;
 use App\Models\User;
 use App\Notifications\StandupPromptNotification;
@@ -15,7 +14,6 @@ class StandupMessageService
     public function __construct(
         private readonly SlackIntegrationService $slack,
         private readonly DiscordIntegrationService $discord,
-        private readonly StandupQuestionFlowService $questionFlow,
         private readonly StandupRunCompletionService $completion,
     ) {}
 
@@ -135,7 +133,7 @@ class StandupMessageService
             $integrationUser = $integrationUsers->get($member->id);
 
             if ($integrationUser?->external_user_id) {
-                $this->slack->sendDirectMessage($integration, $integrationUser->external_user_id, $message);
+                $this->slack->sendDirectStandupPrompt($integration, $integrationUser->external_user_id, $run, $message);
             } else {
                 $member->notify(new StandupPromptNotification($run, true, $message));
             }
@@ -172,7 +170,7 @@ class StandupMessageService
             $integration,
             $run->schedule->promptChannel->external_channel_id,
             $run,
-            $this->messageText($run, $reminder),
+            $this->slackMessageText($run, $reminder),
         );
     }
 
@@ -212,48 +210,20 @@ class StandupMessageService
         ]);
 
         foreach ($integrationUsers as $integrationUser) {
-            $response = $run->responses()
-                ->with('answers')
-                ->where('user_id', $integrationUser->user_id)
-                ->first();
-            $question = $response ? $this->questionFlow->nextQuestionForResponse($run, $response) : null;
-
-            if (! $question) {
-                Log::info('Slack DM standup question skipped: no unanswered questions', [
-                    'standup_run_id' => $run->id,
-                    'integration_id' => $integration->id,
-                    'user_id' => $integrationUser->user_id,
-                ]);
-
-                continue;
-            }
-
-            $questions = $this->questionFlow->orderedQuestions($run);
-
             Log::info('Slack DM standup prompt sending', [
                 'standup_run_id' => $run->id,
                 'integration_id' => $integration->id,
                 'user_id' => $integrationUser->user_id,
                 'external_user_id' => $integrationUser->external_user_id,
-                'standup_question_id' => $question->id,
                 'reminder' => $reminder,
             ]);
 
-            $this->slack->sendDirectStandupQuestion(
+            $this->slack->sendDirectStandupPrompt(
                 $integration,
                 $integrationUser->external_user_id,
                 $run,
-                $question,
-                $questions->search(fn ($candidate) => $candidate->id === $question->id) + 1,
-                $questions->count(),
+                $this->slackMessageText($run, $reminder),
             );
-
-            $response->forceFill([
-                'raw_json' => [
-                    ...$this->responseRawJson($response),
-                    'current_question_id' => $question->id,
-                ],
-            ])->save();
         }
     }
 
@@ -289,18 +259,10 @@ class StandupMessageService
         return "{$prefix}Submit today's standup for {$run->workspace->name}: {$url}";
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function responseRawJson(StandupResponse $response): array
+    private function slackMessageText(StandupRun $run, bool $reminder): string
     {
-        $rawJson = $response->getAttribute('raw_json');
+        $prefix = $reminder ? 'Reminder: ' : '';
 
-        if (is_string($rawJson)) {
-            $decoded = json_decode($rawJson, true);
-            $rawJson = is_array($decoded) ? $decoded : [];
-        }
-
-        return is_array($rawJson) ? $rawJson : [];
+        return "{$prefix}{$run->workspace->name}'s daily standup is ready.";
     }
 }

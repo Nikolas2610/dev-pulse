@@ -54,10 +54,24 @@ class DashboardController extends Controller
             ->get(['id', 'status']);
         $todayStats = $this->participationStats(collect($run ? [$run->id] : []));
         $weekStats = $this->participationStats($weekRuns->pluck('id'));
+        $pendingStandup = StandupResponse::query()
+            ->with('run.workspace', 'run.template')
+            ->where('organization_id', $organization?->id)
+            ->where('workspace_id', $workspace?->id)
+            ->where('user_id', $request->user()?->id)
+            ->where('status', 'pending')
+            ->whereHas('run', fn ($query) => $query->where('status', 'active'))
+            ->latest('id')
+            ->first();
 
         return Inertia::render('dashboard', [
             'todayRun' => $run,
             'latestSummary' => $run?->summary,
+            'pendingStandup' => $pendingStandup ? [
+                'runId' => $pendingStandup->standup_run_id,
+                'workspaceName' => $pendingStandup->run->workspace->name,
+                'templateName' => $pendingStandup->run->template->name,
+            ] : null,
             'stats' => [
                 'today' => [
                     'label' => $now->format('D, M j'),
