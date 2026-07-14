@@ -1,13 +1,24 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, CircleSlash, Send } from 'lucide-react';
+import { useState } from 'react';
 import {
     FormMultiSelect,
     FormSelect,
 } from '@/components/forms/form-components';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
 export default function StandupSubmit({ run }: { run: any }) {
+    const [skipOpen, setSkipOpen] = useState(false);
+    const [skipReason, setSkipReason] = useState('');
     const questions = run.template?.questions ?? [];
     const { data, setData, post, processing, errors } = useForm({
         answers: Object.fromEntries(
@@ -86,9 +97,7 @@ export default function StandupSubmit({ run }: { run: any }) {
                                 type="button"
                                 variant="outline"
                                 disabled={processing}
-                                onClick={() =>
-                                    router.post(`/standup-runs/${run.id}/skip`)
-                                }
+                                onClick={() => setSkipOpen(true)}
                             >
                                 <CircleSlash />
                                 Skip standup
@@ -243,6 +252,48 @@ export default function StandupSubmit({ run }: { run: any }) {
                         )}
                     </div>
                 </form>
+                <Dialog open={skipOpen} onOpenChange={setSkipOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Skip today’s standup?</DialogTitle>
+                            <DialogDescription>
+                                Add a short reason so the team understands your
+                                absence.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2">
+                            <Label htmlFor="skip-reason">Reason</Label>
+                            <textarea
+                                id="skip-reason"
+                                className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                value={skipReason}
+                                onChange={(event) =>
+                                    setSkipReason(event.target.value)
+                                }
+                                placeholder="For example: out sick or on leave"
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => setSkipOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                disabled={!skipReason.trim() || processing}
+                                onClick={() =>
+                                    router.post(
+                                        `/standup-runs/${run.id}/skip`,
+                                        { reason: skipReason },
+                                    )
+                                }
+                            >
+                                Confirm skip
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     );

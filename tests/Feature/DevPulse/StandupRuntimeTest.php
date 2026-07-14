@@ -557,8 +557,10 @@ class StandupRuntimeTest extends TestCase
 
         Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage'
             && $request['channel'] === 'C_PROMPT'
-            && $request['blocks'][1]['elements'][0]['action_id'] === 'submit_standup'
-            && $request['blocks'][1]['elements'][0]['value'] === (string) $run->id);
+            && $request['blocks'][1]['elements'][0]['action_id'] === 'join_standup'
+            && $request['blocks'][1]['elements'][1]['action_id'] === 'skip_standup'
+            && $request['blocks'][1]['elements'][0]['value'] === (string) $run->id
+            && ! str_contains($request['text'], route('standup-runs.submit', $run)));
     }
 
     public function test_slack_channel_open_run_tracks_linked_and_unlinked_users_for_private_reminder_fallback(): void
@@ -797,12 +799,12 @@ class StandupRuntimeTest extends TestCase
             && $request['users'] === 'U_MAPPED');
         Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage'
             && $request['channel'] === 'D_MAPPED'
-            && str_contains($request['text'], $question->question_text)
-            && $request['blocks'][2]['elements'][0]['action_id'] === 'submit_standup_answer'
+            && $request['blocks'][1]['elements'][0]['action_id'] === 'join_standup'
+            && $request['blocks'][1]['elements'][1]['action_id'] === 'skip_standup'
             && ! str_contains($request['text'], route('standup-runs.submit', $run)));
     }
 
-    public function test_slack_dm_delivery_renders_choice_question_as_static_select(): void
+    public function test_slack_dm_delivery_starts_with_join_or_skip_choice(): void
     {
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
         StandupQuestion::factory()->for($template)->create([
@@ -852,8 +854,8 @@ class StandupRuntimeTest extends TestCase
         app(StandupMessageService::class)->openRun($run);
 
         Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage'
-            && $request['blocks'][1]['element']['type'] === 'static_select'
-            && $request['blocks'][1]['element']['options'][2]['value'] === 'excellent');
+            && $request['blocks'][1]['elements'][0]['action_id'] === 'join_standup'
+            && $request['blocks'][1]['elements'][1]['action_id'] === 'skip_standup');
     }
 
     public function test_email_reminder_sends_only_to_pending_recipients(): void
@@ -1858,7 +1860,7 @@ class StandupRuntimeTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->post(route('standup-runs.skip', $run))
+            ->post(route('standup-runs.skip', $run), ['reason' => 'Out sick'])
             ->assertRedirect(route('standups.show', $run));
 
         $this->assertDatabaseHas('standup_responses', [
@@ -1866,6 +1868,7 @@ class StandupRuntimeTest extends TestCase
             'status' => 'skipped',
             'source' => 'web',
         ]);
+        $this->assertSame('Out sick', $response->refresh()->raw_json['skip_reason']);
         $this->assertDatabaseMissing('standup_answers', [
             'standup_response_id' => $response->id,
             'answer_text' => 'Draft answer',

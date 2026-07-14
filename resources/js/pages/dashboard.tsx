@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import {
+    ArrowRight,
     CalendarDays,
     CheckCircle2,
     Clock3,
@@ -27,6 +28,11 @@ type PeriodStats = {
 };
 
 type DashboardProps = {
+    pendingStandup: {
+        runId: number;
+        workspaceName: string;
+        templateName: string;
+    } | null;
     todayRun: any | null;
     latestSummary: { summary_text: string } | null;
     stats: {
@@ -58,6 +64,7 @@ export default function Dashboard({
     todayRun,
     latestSummary,
     stats,
+    pendingStandup,
 }: DashboardProps) {
     const submittedResponses = (todayRun?.responses ?? []).filter(
         (response: any) => response.status === 'submitted',
@@ -91,6 +98,28 @@ export default function Dashboard({
         <>
             <Head title="Dashboard" />
             <div className="dp-page">
+                {pendingStandup && (
+                    <div className="mb-6 flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div className="text-sm font-semibold">
+                                Your standup is waiting
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {pendingStandup.templateName} for{' '}
+                                {pendingStandup.workspaceName} is ready to
+                                complete.
+                            </p>
+                        </div>
+                        <Button asChild className="shrink-0">
+                            <Link
+                                href={`/standup-runs/${pendingStandup.runId}/submit`}
+                            >
+                                Fill standup
+                                <ArrowRight />
+                            </Link>
+                        </Button>
+                    </div>
+                )}
                 <div className="dp-page-header">
                     <div>
                         <div className="dp-kicker">Daily pulse</div>
