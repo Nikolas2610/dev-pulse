@@ -138,7 +138,9 @@ export default function AutomationHealth({
                             {health.stalled_runs.map((item: any) => (
                                 <IssueRow
                                     key={`stalled-${item.id}`}
-                                    title={item.name ?? `Standup run #${item.id}`}
+                                    title={
+                                        item.name ?? `Standup run #${item.id}`
+                                    }
                                     detail={`${item.workspace} · Run is still ${item.status}`}
                                     status="Stalled"
                                     href={`/standups/${item.id}`}
@@ -194,7 +196,9 @@ export default function AutomationHealth({
                                             {relativeTime(execution.started_at)}
                                         </div>
                                         {execution.duration_ms !== null && (
-                                            <div>{execution.duration_ms} ms</div>
+                                            <div>
+                                                {execution.duration_ms} ms
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -228,7 +232,7 @@ export default function AutomationHealth({
                                             {relativeTime(job.failed_at)}
                                         </div>
                                     </div>
-                                    <p className="mt-1 break-words text-xs text-destructive">
+                                    <p className="mt-1 text-xs break-words text-destructive">
                                         {job.error}
                                     </p>
                                 </div>
@@ -282,7 +286,9 @@ function IssueRow({ title, detail, status, href }: any) {
 }
 
 function EmptyRow({ text }: { text: string }) {
-    return <div className="px-5 py-8 text-sm text-muted-foreground">{text}</div>;
+    return (
+        <div className="px-5 py-8 text-sm text-muted-foreground">{text}</div>
+    );
 }
 
 function metricsText(metrics: Record<string, number> | null): string {
