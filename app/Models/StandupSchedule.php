@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int|null $target_integration_id
  * @property int|null $prompt_channel_id
  * @property int|null $target_channel_id
+ * @property bool $notify_manager_on_blocker
  * @property bool $is_active
  */
 #[Fillable([
@@ -46,6 +47,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
     'target_integration_id',
     'prompt_channel_id',
     'target_channel_id',
+    'notify_manager_on_blocker',
     'is_active',
     'created_by_user_id',
 ])]
@@ -56,6 +58,7 @@ class StandupSchedule extends Model
         return [
             'days_of_week' => 'array',
             'reminder_minutes_before_end' => 'array',
+            'notify_manager_on_blocker' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

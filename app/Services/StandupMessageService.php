@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\IntegrationUser;
-use App\Models\StandupResponse;
 use App\Models\StandupRun;
 use App\Models\User;
 use App\Notifications\StandupPromptNotification;
@@ -15,7 +14,6 @@ class StandupMessageService
     public function __construct(
         private readonly SlackIntegrationService $slack,
         private readonly DiscordIntegrationService $discord,
-        private readonly StandupQuestionFlowService $questionFlow,
         private readonly StandupRunCompletionService $completion,
     ) {}
 
@@ -135,7 +133,7 @@ class StandupMessageService
             $integrationUser = $integrationUsers->get($member->id);
 
             if ($integrationUser?->external_user_id) {
-                $this->slack->sendDirectStandupPrompt($integration, $integrationUser->external_user_id, $run, $this->slackMessageText($run, true));
+                $this->slack->sendDirectStandupPrompt($integration, $integrationUser->external_user_id, $run, $message);
             } else {
                 $member->notify(new StandupPromptNotification($run, true, $message));
             }
@@ -266,20 +264,5 @@ class StandupMessageService
         $prefix = $reminder ? 'Reminder: ' : '';
 
         return "{$prefix}{$run->workspace->name}'s daily standup is ready.";
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function responseRawJson(StandupResponse $response): array
-    {
-        $rawJson = $response->getAttribute('raw_json');
-
-        if (is_string($rawJson)) {
-            $decoded = json_decode($rawJson, true);
-            $rawJson = is_array($decoded) ? $decoded : [];
-        }
-
-        return is_array($rawJson) ? $rawJson : [];
     }
 }

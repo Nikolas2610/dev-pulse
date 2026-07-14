@@ -61,4 +61,10 @@ class StandupResponse extends Model
     {
         return $this->hasMany(StandupAnswer::class);
     }
+
+    /** @return HasMany<ManagerBlockerNotification, $this> */
+    public function managerBlockerNotifications(): HasMany
+    {
+        return $this->hasMany(ManagerBlockerNotification::class);
+    }
 }
