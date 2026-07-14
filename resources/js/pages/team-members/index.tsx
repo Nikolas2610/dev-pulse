@@ -284,29 +284,44 @@ function MemberRow({
                     {member.email}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                    {(member.workspaces ?? []).map((workspace) => (
-                        <span
-                            key={workspace.id}
-                            className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1 text-xs"
-                        >
-                            {workspace.name}
-                            <span className="text-muted-foreground">
-                                {workspace.pivot?.role ?? 'member'}
+                    {(member.workspaces ?? []).map((workspace) => {
+                        const assignedManager = workspace.pivot?.manager_user_id
+                            ? workspaceManagers[workspace.id]?.find(
+                                  (manager) =>
+                                      manager.id ===
+                                      workspace.pivot?.manager_user_id,
+                              )
+                            : undefined;
+
+                        return (
+                            <span
+                                key={workspace.id}
+                                className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1 text-xs"
+                            >
+                                {workspace.name}
+                                <span className="text-muted-foreground">
+                                    {workspace.pivot?.role ?? 'member'}
+                                </span>
+                                {assignedManager && (
+                                    <span className="text-muted-foreground">
+                                        Reports to: {assignedManager.name}
+                                    </span>
+                                )}
+                                {canManageMembers && (
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground transition hover:text-destructive"
+                                        onClick={() =>
+                                            removeWorkspace(member, workspace)
+                                        }
+                                        aria-label={`Remove ${member.name} from ${workspace.name}`}
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </button>
+                                )}
                             </span>
-                            {canManageMembers && (
-                                <button
-                                    type="button"
-                                    className="text-muted-foreground transition hover:text-destructive"
-                                    onClick={() =>
-                                        removeWorkspace(member, workspace)
-                                    }
-                                    aria-label={`Remove ${member.name} from ${workspace.name}`}
-                                >
-                                    <Trash2 className="size-3.5" />
-                                </button>
-                            )}
-                        </span>
-                    ))}
+                        );
+                    })}
                     {(member.workspaces ?? []).length === 0 && (
                         <span className="text-sm text-muted-foreground">
                             No workspace access
