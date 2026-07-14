@@ -23,6 +23,25 @@ jobs:
     environment: production
 
     steps:
+      - name: Notify Discord that deployment started
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_DEPLOY_WEBHOOK_URL }}
+          DEPLOY_ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_DEPLOY_WEBHOOK_URL is not configured; skipping notification."
+            exit 0
+          fi
+
+          message="🚧 DevPulse deployment to production started by ${DEPLOY_ACTOR}.\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload="$(jq -n --arg content "$message" '{content: $content}')"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$DISCORD_WEBHOOK_URL" \
+            || echo "Warning: Discord start notification failed."
+
       - name: Deploy DevPulse to VPS
         uses: appleboy/ssh-action@v1.2.2
         env:
@@ -55,8 +74,59 @@ jobs:
 
             cd "$APP_DIR"
 
+            REMOTE_PHP_BIN="${PHP_BIN:-php}"
+            IN_MAINTENANCE=false
+
+            restore_application() {
+              if [ "$IN_MAINTENANCE" = "true" ]; then
+                echo "==> Deployment interrupted before deploy script; bringing DevPulse back up"
+                "$REMOTE_PHP_BIN" artisan up || true
+              fi
+            }
+
+            trap restore_application EXIT
+
+            echo "==> Enabling maintenance mode before updating the checkout"
+            "$REMOTE_PHP_BIN" artisan down --retry=60
+            IN_MAINTENANCE=true
+
             git fetch --prune origin "$APP_BRANCH"
             git checkout "$APP_BRANCH"
             git reset --hard "origin/$APP_BRANCH"
 
-            bash scripts/deploy/vps-deploy.sh
+            APP_ALREADY_IN_MAINTENANCE=true bash scripts/deploy/vps-deploy.sh
+
+            IN_MAINTENANCE=false
+            trap - EXIT
+
+      - name: Notify Discord that deployment finished
+        if: always()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_DEPLOY_WEBHOOK_URL }}
+          DEPLOY_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_DEPLOY_WEBHOOK_URL is not configured; skipping notification."
+            exit 0
+          fi
+
+          case "$DEPLOY_STATUS" in
+            success)
+              message="✅ DevPulse production update finished successfully."
+              ;;
+            cancelled)
+              message="⚠️ DevPulse production deployment was cancelled."
+              ;;
+            *)
+              message="❌ DevPulse production deployment failed."
+              ;;
+          esac
+
+          message="${message}\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload="$(jq -n --arg content "$message" '{content: $content}')"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$DISCORD_WEBHOOK_URL" \
+            || echo "Warning: Discord completion notification failed."
