@@ -67,10 +67,7 @@ export function formatWeekdays(value: number[] = []): string {
         return 'Every day';
     }
 
-    if (
-        days.length === 5 &&
-        days.every((day, index) => day === index + 1)
-    ) {
+    if (days.length === 5 && days.every((day, index) => day === index + 1)) {
         return 'Mon–Fri';
     }
 
