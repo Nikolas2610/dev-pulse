@@ -44,6 +44,7 @@ class ScheduleController extends Controller
                 ->orderBy('name')->get(['id', 'name']),
             'integrations' => Integration::with('channels')
                 ->where('organization_id', $organization?->id)
+                ->where('is_active', true)
                 ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspace_id', $workspaceIds))
                 ->whereIn('provider', ['slack', 'discord'])
                 ->orderBy('provider')
@@ -95,6 +96,7 @@ class ScheduleController extends Controller
             'target_integration_id' => ['nullable', 'integer'],
             'prompt_channel_id' => ['nullable', 'integer'],
             'target_channel_id' => ['nullable', 'integer'],
+            'notify_manager_on_blocker' => ['boolean'],
             'is_active' => ['boolean'],
         ]);
         $validated = $this->normalizeAndValidateReminderSettings($validated);
@@ -107,6 +109,10 @@ class ScheduleController extends Controller
         }
 
         if ($response = $this->validateDeliveryConfiguration($validated, $organization->id)) {
+            return $response;
+        }
+
+        if ($response = $this->validateManagerBlockerAlertConfiguration($validated, $organization->id)) {
             return $response;
         }
 
@@ -144,6 +150,7 @@ class ScheduleController extends Controller
                 ->orderBy('name')->get(['id', 'name']),
             'integrations' => Integration::with('channels')
                 ->where('organization_id', $organization->id)
+                ->where('is_active', true)
                 ->when(! $isOrganizationManager, fn ($query) => $query->whereIn('workspace_id', $workspaceIds))
                 ->whereIn('provider', ['slack', 'discord'])
                 ->orderBy('provider')
@@ -177,6 +184,8 @@ class ScheduleController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'timezone' => TimezoneRules::required(),
             'time_of_day' => ['required', 'date_format:H:i'],
+            'days_of_week' => ['required', 'array', 'min:1'],
+            'days_of_week.*' => ['integer', 'between:1,7'],
             'end_time_of_day' => ['nullable', 'date_format:H:i'],
             'reminder_minutes_before_end' => ['nullable', 'array', 'min:1'],
             'reminder_minutes_before_end.*' => ['integer', 'min:1'],
@@ -190,6 +199,7 @@ class ScheduleController extends Controller
             'target_integration_id' => ['nullable', 'integer'],
             'prompt_channel_id' => ['nullable', 'integer'],
             'target_channel_id' => ['nullable', 'integer'],
+            'notify_manager_on_blocker' => ['boolean'],
             'is_active' => ['boolean'],
         ]);
         $validated = $this->normalizeAndValidateReminderSettings($validated);
@@ -206,6 +216,10 @@ class ScheduleController extends Controller
         }
 
         if ($response = $this->validateDeliveryConfiguration($validated, $organization->id)) {
+            return $response;
+        }
+
+        if ($response = $this->validateManagerBlockerAlertConfiguration($validated, $organization->id)) {
             return $response;
         }
 
@@ -522,6 +536,30 @@ class ScheduleController extends Controller
         }
 
         return null;
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function validateManagerBlockerAlertConfiguration(array $validated, int $organizationId): ?RedirectResponse
+    {
+        if (! ($validated['notify_manager_on_blocker'] ?? false)) {
+            return null;
+        }
+
+        $hasActiveSlackIntegration = ! empty($validated['target_integration_id'])
+            && Integration::query()
+                ->whereKey($validated['target_integration_id'])
+                ->where('organization_id', $organizationId)
+                ->where('provider', 'slack')
+                ->where('is_active', true)
+                ->exists();
+
+        if ($hasActiveSlackIntegration) {
+            return null;
+        }
+
+        return back()->withErrors([
+            'notify_manager_on_blocker' => __('Select an active Slack integration before enabling private blocker alerts.'),
+        ])->withInput();
     }
 
     /** @param array<string, mixed> $validated */
