@@ -12,6 +12,7 @@ PHP_FPM_RELOAD_COMMAND="${PHP_FPM_RELOAD_COMMAND:-sudo systemctl reload php8.3-f
 QUEUE_RESTART_COMMAND="${QUEUE_RESTART_COMMAND:-}"
 WRITABLE_PATHS_COMMAND="${WRITABLE_PATHS_COMMAND:-sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
+APP_ALREADY_IN_MAINTENANCE="${APP_ALREADY_IN_MAINTENANCE:-false}"
 
 if [[ "$NODE_BIN" == */* ]]; then
     export PATH="$(dirname "$NODE_BIN"):$PATH"
@@ -21,6 +22,27 @@ cd "$APP_DIR"
 
 echo "==> DevPulse deploy started"
 echo "==> App directory: $APP_DIR"
+
+IN_MAINTENANCE=false
+
+restore_application() {
+    if [ "$IN_MAINTENANCE" = "true" ]; then
+        echo "==> Deployment interrupted; bringing DevPulse back up"
+        "$PHP_BIN" artisan up || true
+    fi
+}
+
+trap restore_application EXIT
+
+if [ "$APP_ALREADY_IN_MAINTENANCE" = "true" ]; then
+    echo "==> Application is already in maintenance mode"
+    IN_MAINTENANCE=true
+else
+    echo "==> Enabling maintenance mode"
+    "$PHP_BIN" artisan down --retry=60
+    IN_MAINTENANCE=true
+fi
+
 echo "==> Commit: $(git rev-parse --short HEAD)"
 echo "==> PHP: $($PHP_BIN -r 'echo PHP_VERSION;')"
 echo "==> Composer: $($COMPOSER_BIN --version --no-ansi)"
@@ -43,21 +65,6 @@ if [ "$SKIP_NPM_BUILD" != "true" ]; then
 else
     echo "==> Skipping frontend build because SKIP_NPM_BUILD=true"
 fi
-
-IN_MAINTENANCE=false
-
-restore_application() {
-    if [ "$IN_MAINTENANCE" = "true" ]; then
-        echo "==> Deployment interrupted; bringing DevPulse back up"
-        "$PHP_BIN" artisan up || true
-    fi
-}
-
-trap restore_application EXIT
-
-echo "==> Enabling maintenance mode"
-"$PHP_BIN" artisan down --retry=60
-IN_MAINTENANCE=true
 
 echo "==> Clearing old Laravel caches"
 "$PHP_BIN" artisan optimize:clear

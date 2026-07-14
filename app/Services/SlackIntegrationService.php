@@ -185,20 +185,19 @@ class SlackIntegrationService
         throw new RuntimeException("Slack API {$method} failed: {$error}");
     }
 
-    public function postMessage(Integration $integration, string $channel, string $text): ?string
+    public function postMessage(Integration $integration, string $channel, string $text, ?string $clientMessageId = null): ?string
     {
-        $payload = $this->postSlackMessage($integration, [
+        $message = array_filter([
             'channel' => $channel,
             'text' => $text,
-        ]);
+            'client_msg_id' => $clientMessageId,
+        ], fn ($value): bool => $value !== null);
+        $payload = $this->postSlackMessage($integration, $message);
 
         if (($payload['ok'] ?? false) !== true && ($payload['error'] ?? null) === 'not_in_channel') {
             $this->joinChannel($integration, $channel);
 
-            $payload = $this->postSlackMessage($integration, [
-                'channel' => $channel,
-                'text' => $text,
-            ]);
+            $payload = $this->postSlackMessage($integration, $message);
         }
 
         $this->ensureSlackOk($payload, 'chat.postMessage', $integration);
@@ -216,7 +215,7 @@ class SlackIntegrationService
                     'type' => 'section',
                     'text' => [
                         'type' => 'mrkdwn',
-                        'text' => '*Daily standup is open*'.PHP_EOL.$text,
+                        'text' => '*Your standup is ready*'.PHP_EOL.$text.PHP_EOL.'Are you joining today, or do you need to skip?',
                     ],
                 ],
                 [
@@ -226,10 +225,16 @@ class SlackIntegrationService
                             'type' => 'button',
                             'text' => [
                                 'type' => 'plain_text',
-                                'text' => 'Submit standup',
+                                'text' => 'Join standup',
                             ],
                             'style' => 'primary',
-                            'action_id' => 'submit_standup',
+                            'action_id' => 'join_standup',
+                            'value' => (string) $run->id,
+                        ],
+                        [
+                            'type' => 'button',
+                            'text' => ['type' => 'plain_text', 'text' => 'Skip'],
+                            'action_id' => 'skip_standup',
                             'value' => (string) $run->id,
                         ],
                     ],
@@ -254,6 +259,7 @@ class SlackIntegrationService
                 'private_metadata' => json_encode([
                     'run_id' => $run->id,
                     'integration_id' => $integration->id,
+                    'mode' => 'submit',
                 ]),
                 'title' => [
                     'type' => 'plain_text',
@@ -281,6 +287,38 @@ class SlackIntegrationService
                         'element' => $this->standupQuestionInputElement($question),
                     ])
                     ->all(),
+            ],
+        ]);
+
+        $this->ensureSlackOk($payload, 'views.open', $integration);
+    }
+
+    public function openSkipStandupModal(Integration $integration, string $triggerId, StandupRun $run): void
+    {
+        $payload = $this->postSlackApi($integration, 'views.open', [
+            'trigger_id' => $triggerId,
+            'view' => [
+                'type' => 'modal',
+                'callback_id' => 'devpulse_standup_skip',
+                'private_metadata' => json_encode([
+                    'run_id' => $run->id,
+                    'integration_id' => $integration->id,
+                    'mode' => 'skip',
+                ]),
+                'title' => ['type' => 'plain_text', 'text' => 'Skip standup'],
+                'submit' => ['type' => 'plain_text', 'text' => 'Confirm skip'],
+                'close' => ['type' => 'plain_text', 'text' => 'Go back'],
+                'blocks' => [[
+                    'type' => 'input',
+                    'block_id' => 'skip_reason',
+                    'label' => ['type' => 'plain_text', 'text' => 'Why are you skipping today?'],
+                    'element' => [
+                        'type' => 'plain_text_input',
+                        'action_id' => 'reason',
+                        'multiline' => true,
+                        'placeholder' => ['type' => 'plain_text', 'text' => 'For example: out sick, on leave, or no update today'],
+                    ],
+                ]],
             ],
         ]);
 
@@ -391,8 +429,12 @@ class SlackIntegrationService
         $this->ensureSlackOk($payload, 'chat.update', $integration);
     }
 
-    public function sendDirectMessage(Integration $integration, string $externalUserId, string $text): ?string
-    {
+    public function sendDirectMessage(
+        Integration $integration,
+        string $externalUserId,
+        string $text,
+        ?string $clientMessageId = null,
+    ): ?string {
         $conversation = $this->postSlackApi($integration, 'conversations.open', [
             'users' => $externalUserId,
         ]);
@@ -405,7 +447,7 @@ class SlackIntegrationService
             return null;
         }
 
-        return $this->postMessage($integration, $channel, $text);
+        return $this->postMessage($integration, $channel, $text, $clientMessageId);
     }
 
     public function sendDirectStandupPrompt(Integration $integration, string $externalUserId, StandupRun $run, string $text): ?string

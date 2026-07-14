@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\CurrentOrganization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -294,6 +295,13 @@ class SlackIntegrationController extends Controller
             $workspace->users()->syncWithoutDetaching([
                 $user->id => ['role' => $validated['workspace_role'], 'is_active' => true],
             ]);
+
+            if ($validated['workspace_role'] !== 'manager') {
+                DB::table('workspace_user')
+                    ->where('workspace_id', $workspace->id)
+                    ->where('manager_user_id', $user->id)
+                    ->update(['manager_user_id' => null, 'updated_at' => now()]);
+            }
 
             $slackUser->forceFill(['user_id' => $user->id])->save();
         }

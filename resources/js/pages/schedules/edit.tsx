@@ -43,6 +43,7 @@ export default function SchedulesEdit({
         target_integration_id: schedule.target_integration_id,
         prompt_channel_id: schedule.prompt_channel_id,
         target_channel_id: schedule.target_channel_id,
+        notify_manager_on_blocker: schedule.notify_manager_on_blocker ?? false,
         is_active: schedule.is_active,
     });
     const selectedIntegration = integrations.find(
@@ -229,6 +230,16 @@ export default function SchedulesEdit({
                                                       ),
                                             prompt_channel_id: null,
                                             target_channel_id: null,
+                                            notify_manager_on_blocker:
+                                                integrations.find(
+                                                    (integration) =>
+                                                        String(
+                                                            integration.id,
+                                                        ) ===
+                                                        event.target.value,
+                                                )?.provider === 'slack'
+                                                    ? current.notify_manager_on_blocker
+                                                    : false,
                                         }))
                                     }
                                 >
@@ -307,6 +318,16 @@ export default function SchedulesEdit({
                                                                   .value,
                                                           ),
                                                 target_channel_id: null,
+                                                notify_manager_on_blocker:
+                                                    integrations.find(
+                                                        (integration) =>
+                                                            String(
+                                                                integration.id,
+                                                            ) ===
+                                                            event.target.value,
+                                                    )?.provider === 'slack'
+                                                        ? current.notify_manager_on_blocker
+                                                        : false,
                                             }))
                                         }
                                     >
@@ -391,6 +412,16 @@ export default function SchedulesEdit({
                             }
                             onParticipantUserIdsChange={(userIds) =>
                                 setData('participant_user_ids', userIds)
+                            }
+                        />
+                        <FormCheckbox
+                            label="Private blocker alerts"
+                            description="Immediately send a Slack DM to a member's assigned manager when the member reports a blocker."
+                            checked={Boolean(data.notify_manager_on_blocker)}
+                            disabled={selectedIntegration?.provider !== 'slack'}
+                            error={errors.notify_manager_on_blocker}
+                            onCheckedChange={(checked) =>
+                                setData('notify_manager_on_blocker', checked)
                             }
                         />
                         <FormCheckbox
