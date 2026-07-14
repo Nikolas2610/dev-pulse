@@ -185,20 +185,19 @@ class SlackIntegrationService
         throw new RuntimeException("Slack API {$method} failed: {$error}");
     }
 
-    public function postMessage(Integration $integration, string $channel, string $text): ?string
+    public function postMessage(Integration $integration, string $channel, string $text, ?string $clientMessageId = null): ?string
     {
-        $payload = $this->postSlackMessage($integration, [
+        $message = array_filter([
             'channel' => $channel,
             'text' => $text,
-        ]);
+            'client_msg_id' => $clientMessageId,
+        ], fn ($value): bool => $value !== null);
+        $payload = $this->postSlackMessage($integration, $message);
 
         if (($payload['ok'] ?? false) !== true && ($payload['error'] ?? null) === 'not_in_channel') {
             $this->joinChannel($integration, $channel);
 
-            $payload = $this->postSlackMessage($integration, [
-                'channel' => $channel,
-                'text' => $text,
-            ]);
+            $payload = $this->postSlackMessage($integration, $message);
         }
 
         $this->ensureSlackOk($payload, 'chat.postMessage', $integration);
@@ -430,8 +429,12 @@ class SlackIntegrationService
         $this->ensureSlackOk($payload, 'chat.update', $integration);
     }
 
-    public function sendDirectMessage(Integration $integration, string $externalUserId, string $text): ?string
-    {
+    public function sendDirectMessage(
+        Integration $integration,
+        string $externalUserId,
+        string $text,
+        ?string $clientMessageId = null,
+    ): ?string {
         $conversation = $this->postSlackApi($integration, 'conversations.open', [
             'users' => $externalUserId,
         ]);
@@ -444,7 +447,7 @@ class SlackIntegrationService
             return null;
         }
 
-        return $this->postMessage($integration, $channel, $text);
+        return $this->postMessage($integration, $channel, $text, $clientMessageId);
     }
 
     public function sendDirectStandupPrompt(Integration $integration, string $externalUserId, StandupRun $run, string $text): ?string

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import {
     FormActions,
+    FormCheckbox,
     FormField,
     FormGrid,
     FormSelect,
@@ -88,6 +89,7 @@ export default function SchedulesIndex({
         target_integration_id: null as number | null,
         prompt_channel_id: null as number | null,
         target_channel_id: null as number | null,
+        notify_manager_on_blocker: false,
         is_active: true,
     });
     const selectedIntegration = integrations.find(
@@ -248,6 +250,13 @@ export default function SchedulesIndex({
                                                         ? null
                                                         : current.target_integration_id,
                                                 prompt_channel_id: null,
+                                                notify_manager_on_blocker:
+                                                    deliveryMethod ===
+                                                        'email' ||
+                                                    deliveryMethod ===
+                                                        'discord_channel'
+                                                        ? false
+                                                        : current.notify_manager_on_blocker,
                                             }));
                                         }}
                                     >
@@ -355,6 +364,18 @@ export default function SchedulesIndex({
                                                                   ),
                                                         prompt_channel_id: null,
                                                         target_channel_id: null,
+                                                        notify_manager_on_blocker:
+                                                            integrations.find(
+                                                                (integration) =>
+                                                                    String(
+                                                                        integration.id,
+                                                                    ) ===
+                                                                    event.target
+                                                                        .value,
+                                                            )?.provider ===
+                                                            'slack'
+                                                                ? current.notify_manager_on_blocker
+                                                                : false,
                                                     }))
                                                 }
                                             >
@@ -456,6 +477,24 @@ export default function SchedulesIndex({
                                             ))}
                                         </FormSelect>
                                     </FormGrid>
+                                    <FormCheckbox
+                                        label="Private blocker alerts"
+                                        description="Immediately send a Slack DM to a member's assigned manager when the member reports a blocker."
+                                        checked={Boolean(
+                                            data.notify_manager_on_blocker,
+                                        )}
+                                        disabled={
+                                            selectedIntegration?.provider !==
+                                            'slack'
+                                        }
+                                        error={errors.notify_manager_on_blocker}
+                                        onCheckedChange={(checked) =>
+                                            setData(
+                                                'notify_manager_on_blocker',
+                                                checked,
+                                            )
+                                        }
+                                    />
                                     <FormActions
                                         submitLabel="Create schedule"
                                         processing={processing}
@@ -566,9 +605,7 @@ export default function SchedulesIndex({
                                         - {schedule.timezone}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                        {formatWeekdays(
-                                            schedule.days_of_week,
-                                        )}
+                                        {formatWeekdays(schedule.days_of_week)}
                                         {' · '}
                                         {deliveryMethodLabels[
                                             schedule.delivery_method ?? 'email'
