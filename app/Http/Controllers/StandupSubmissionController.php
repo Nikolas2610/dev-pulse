@@ -20,7 +20,7 @@ use Inertia\Response;
 
 class StandupSubmissionController extends Controller
 {
-    public function create(Request $request, StandupRun $run, CurrentOrganization $currentOrganization, WorkItemSuggestionService $suggestions): Response
+    public function create(Request $request, StandupRun $run, CurrentOrganization $currentOrganization, WorkItemSuggestionService $suggestions): Response|RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $run->organization_id === $organization->id, 404);
@@ -28,6 +28,14 @@ class StandupSubmissionController extends Controller
             $currentOrganization->workspacesForUser($organization, $request->user())->contains('id', $run->workspace_id),
             404,
         );
+
+        $response = $run->responses()->where('user_id', $request->user()->id)->first();
+
+        if (! $response || $response->status !== 'pending') {
+            Inertia::flash('toast', ['type' => 'info', 'message' => __('This standup is no longer pending for you.')]);
+
+            return to_route('standups.show', $run);
+        }
 
         return Inertia::render('standup-runs/submit', [
             'run' => $run->load('workspace', 'template.questions'),
@@ -187,7 +195,11 @@ class StandupSubmissionController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($request, $run, $events, $completion): void {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        DB::transaction(function () use ($request, $run, $events, $completion, $validated): void {
             $response = StandupResponse::firstOrNew([
                 'standup_run_id' => $run->id,
                 'user_id' => $request->user()->id,
@@ -199,6 +211,7 @@ class StandupSubmissionController extends Controller
                 'status' => 'skipped',
                 'submitted_at' => now(),
                 'source' => 'web',
+                'raw_json' => ['skip_reason' => $validated['reason']],
             ])->save();
 
             $response->answers()->delete();

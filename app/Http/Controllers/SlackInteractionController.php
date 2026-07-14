@@ -50,7 +50,7 @@ class SlackInteractionController extends Controller
                 return $this->storeMessageAnswer($request, $payload, $action, $slack, $events, $questionFlow, $completion);
             }
 
-            abort_unless($actionId === 'submit_standup', 400);
+            abort_unless(in_array($actionId, ['submit_standup', 'join_standup', 'skip_standup'], true), 400);
 
             $run = StandupRun::query()
                 ->with('schedule.targetIntegration', 'template.questions', 'workspace')
@@ -60,7 +60,11 @@ class SlackInteractionController extends Controller
             abort_unless($integration instanceof Integration && $integration->provider === 'slack', 404);
             $this->verifySignature($request, $integration);
 
-            $slack->openStandupModal($integration, (string) ($payload['trigger_id'] ?? ''), $run);
+            if ($actionId === 'skip_standup') {
+                $slack->openSkipStandupModal($integration, (string) ($payload['trigger_id'] ?? ''), $run);
+            } else {
+                $slack->openStandupModal($integration, (string) ($payload['trigger_id'] ?? ''), $run);
+            }
 
             return response()->json();
         }
@@ -90,6 +94,57 @@ class SlackInteractionController extends Controller
 
             if (! $integrationUser) {
                 return $this->modalErrors($run, __('Your Slack account is not linked to a DevPulse user. Ask an admin to sync Slack users.'));
+            }
+
+            $existingResponse = $run->responses()->where('user_id', $integrationUser->user_id)->first();
+
+            if ($existingResponse && $existingResponse->status !== 'pending') {
+                $blockId = ($metadata['mode'] ?? 'submit') === 'skip'
+                    ? 'skip_reason'
+                    : 'question_'.$run->template->questions->sortBy('sort_order')->first()?->id;
+
+                return response()->json([
+                    'response_action' => 'errors',
+                    'errors' => [$blockId => __('You have already completed this standup.')],
+                ]);
+            }
+
+            if (($metadata['mode'] ?? 'submit') === 'skip') {
+                $reason = trim((string) ($payload['view']['state']['values']['skip_reason']['reason']['value'] ?? ''));
+
+                if ($reason === '') {
+                    return response()->json([
+                        'response_action' => 'errors',
+                        'errors' => ['skip_reason' => __('Please provide a reason for skipping.')],
+                    ]);
+                }
+
+                $response = $run->responses()->updateOrCreate(
+                    ['user_id' => $integrationUser->user_id],
+                    [
+                        'organization_id' => $run->organization_id,
+                        'workspace_id' => $run->workspace_id,
+                        'status' => 'skipped',
+                        'submitted_at' => now(),
+                        'source' => 'slack',
+                        'external_message_id' => $payload['view']['id'] ?? null,
+                        'raw_json' => ['skip_reason' => $reason],
+                    ],
+                );
+                $response->answers()->delete();
+
+                $events->record(
+                    $run->organization,
+                    ActivityEventService::STANDUP_RESPONSE_SKIPPED,
+                    source: 'slack',
+                    workspace: $run->workspace,
+                    user: $integrationUser->user,
+                    subject: $response,
+                    externalId: $payload['view']['id'] ?? null,
+                );
+                $completion->completeIfAllResponsesSubmitted($run);
+
+                return response()->json(['response_action' => 'clear']);
             }
 
             $response = $run->responses()->updateOrCreate(

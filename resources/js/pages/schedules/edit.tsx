@@ -13,6 +13,7 @@ import {
     defaultReminderTemplate,
     ReminderSettings,
 } from '@/pages/schedules/reminder-settings';
+import { WeekdayPicker } from '@/pages/schedules/weekday-picker';
 
 export default function SchedulesEdit({
     schedule,
@@ -28,6 +29,7 @@ export default function SchedulesEdit({
         timezone: schedule.timezone,
         time_of_day: String(schedule.time_of_day).slice(0, 5),
         end_time_of_day: String(schedule.end_time_of_day).slice(0, 5),
+        days_of_week: (schedule.days_of_week ?? [1, 2, 3, 4, 5]).map(Number),
         reminder_minutes_before_end: schedule.reminder_minutes_before_end ?? [
             60, 30, 15, 5,
         ],
@@ -41,6 +43,7 @@ export default function SchedulesEdit({
         target_integration_id: schedule.target_integration_id,
         prompt_channel_id: schedule.prompt_channel_id,
         target_channel_id: schedule.target_channel_id,
+        notify_manager_on_blocker: schedule.notify_manager_on_blocker ?? false,
         is_active: schedule.is_active,
     });
     const selectedIntegration = integrations.find(
@@ -165,6 +168,11 @@ export default function SchedulesEdit({
                                 }
                             />
                         </FormGrid>
+                        <WeekdayPicker
+                            value={data.days_of_week}
+                            error={errors.days_of_week}
+                            onChange={(days) => setData('days_of_week', days)}
+                        />
                         <ReminderSettings
                             offsets={data.reminder_minutes_before_end}
                             template={data.reminder_message_template}
@@ -222,6 +230,16 @@ export default function SchedulesEdit({
                                                       ),
                                             prompt_channel_id: null,
                                             target_channel_id: null,
+                                            notify_manager_on_blocker:
+                                                integrations.find(
+                                                    (integration) =>
+                                                        String(
+                                                            integration.id,
+                                                        ) ===
+                                                        event.target.value,
+                                                )?.provider === 'slack'
+                                                    ? current.notify_manager_on_blocker
+                                                    : false,
                                         }))
                                     }
                                 >
@@ -300,6 +318,16 @@ export default function SchedulesEdit({
                                                                   .value,
                                                           ),
                                                 target_channel_id: null,
+                                                notify_manager_on_blocker:
+                                                    integrations.find(
+                                                        (integration) =>
+                                                            String(
+                                                                integration.id,
+                                                            ) ===
+                                                            event.target.value,
+                                                    )?.provider === 'slack'
+                                                        ? current.notify_manager_on_blocker
+                                                        : false,
                                             }))
                                         }
                                     >
@@ -384,6 +412,16 @@ export default function SchedulesEdit({
                             }
                             onParticipantUserIdsChange={(userIds) =>
                                 setData('participant_user_ids', userIds)
+                            }
+                        />
+                        <FormCheckbox
+                            label="Private blocker alerts"
+                            description="Immediately send a Slack DM to a member's assigned manager when the member reports a blocker."
+                            checked={Boolean(data.notify_manager_on_blocker)}
+                            disabled={selectedIntegration?.provider !== 'slack'}
+                            error={errors.notify_manager_on_blocker}
+                            onCheckedChange={(checked) =>
+                                setData('notify_manager_on_blocker', checked)
                             }
                         />
                         <FormCheckbox

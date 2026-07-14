@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Str;
 
+$appName = env('APP_NAME', 'laravel');
+$appName = is_string($appName) ? $appName : 'laravel';
+
 return [
 
     /*
@@ -69,7 +72,7 @@ return [
 
     'prefix' => env(
         'HORIZON_PREFIX',
-        Str::slug(env('APP_NAME', 'laravel'), '_').'_horizon:'
+        Str::slug($appName, '_').'_horizon:'
     ),
 
     /*
@@ -216,6 +219,14 @@ return [
         'production' => [
             'supervisor-1' => [
                 'maxProcesses' => 10,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
+        ],
+
+        'staging' => [
+            'supervisor-1' => [
+                'maxProcesses' => 3,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],

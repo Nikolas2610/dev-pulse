@@ -105,7 +105,7 @@ function ComboboxContent({
             <ComboboxPrimitive.Positioner
                 align="start"
                 sideOffset={4}
-                className="z-50 outline-none"
+                className="pointer-events-auto z-50 outline-none"
             >
                 <ComboboxPrimitive.Popup
                     data-slot="combobox-content"

@@ -71,12 +71,12 @@ class TeamStandupController extends Controller
                     'template' => $response->run->template?->name,
                 ],
                 'answers' => $response->answers
-                    ->sortBy(fn ($answer) => $answer->question?->sort_order ?? 999)
+                    ->sortBy(fn ($answer) => $answer->question->sort_order ?? 999)
                     ->map(fn ($answer) => [
                         'key' => $answer->question?->question_key,
                         'question' => $answer->question?->question_text,
                         'answer' => $answer->answer_text,
-                    ])->values(),
+                    ])->values()->all(),
             ]);
 
         $members = $workspace

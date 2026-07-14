@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -41,6 +42,17 @@ class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+
+    protected static function booted(): void
+    {
+        static::updated(function (User $user): void {
+            if ($user->wasChanged('is_active') && ! $user->is_active) {
+                DB::table('workspace_user')
+                    ->where('manager_user_id', $user->id)
+                    ->update(['manager_user_id' => null, 'updated_at' => now()]);
+            }
+        });
+    }
 
     public function isSuperAdmin(): bool
     {
@@ -88,7 +100,7 @@ class User extends Authenticatable implements PasskeyUser
     /** @return BelongsToMany<Workspace, $this> */
     public function workspaces(): BelongsToMany
     {
-        return $this->belongsToMany(Workspace::class, 'workspace_user')->withPivot(['role', 'is_active'])->withTimestamps();
+        return $this->belongsToMany(Workspace::class, 'workspace_user')->withPivot(['role', 'is_active', 'manager_user_id'])->withTimestamps();
     }
 
     /** @return HasMany<IntegrationUser, $this> */

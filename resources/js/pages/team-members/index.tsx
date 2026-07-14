@@ -30,7 +30,13 @@ type Workspace = {
     pivot?: {
         role?: string;
         is_active?: boolean;
+        manager_user_id?: number | null;
     };
+};
+
+type ManagerOption = {
+    id: number;
+    name: string;
 };
 
 type Member = {
@@ -46,6 +52,7 @@ type Member = {
 type Props = {
     indexEndpoint: string;
     workspaces: Workspace[];
+    workspaceManagers: Record<number, ManagerOption[]>;
     canManageMembers: boolean;
 };
 
@@ -69,16 +76,25 @@ function removeWorkspace(member: Member, workspace: Workspace) {
 function MemberEditSheet({
     member,
     workspaces,
+    workspaceManagers,
 }: {
     member: Member;
     workspaces: Workspace[];
+    workspaceManagers: Record<number, ManagerOption[]>;
 }) {
     const firstWorkspace = member.workspaces?.[0];
-    const { data, setData, patch, processing } = useForm({
+    const { data, setData, patch, processing, errors } = useForm({
         organization_role: member.pivot?.role ?? 'member',
         workspace_id: String(firstWorkspace?.id ?? workspaces[0]?.id ?? ''),
         workspace_role: firstWorkspace?.pivot?.role ?? 'member',
+        manager_user_id: firstWorkspace?.pivot?.manager_user_id
+            ? String(firstWorkspace.pivot.manager_user_id)
+            : '',
     });
+    const eligibleManagers =
+        workspaceManagers[Number(data.workspace_id)]?.filter(
+            (manager) => manager.id !== member.id,
+        ) ?? [];
 
     return (
         <Sheet>
@@ -128,9 +144,26 @@ function MemberEditSheet({
                         <FormSelect
                             label="Workspace"
                             value={data.workspace_id}
-                            onChange={(event) =>
-                                setData('workspace_id', event.target.value)
-                            }
+                            onChange={(event) => {
+                                const workspaceId = event.target.value;
+                                const membership = member.workspaces?.find(
+                                    (workspace) =>
+                                        String(workspace.id) === workspaceId,
+                                );
+
+                                setData((current) => ({
+                                    ...current,
+                                    workspace_id: workspaceId,
+                                    workspace_role:
+                                        membership?.pivot?.role ?? 'member',
+                                    manager_user_id: membership?.pivot
+                                        ?.manager_user_id
+                                        ? String(
+                                              membership.pivot.manager_user_id,
+                                          )
+                                        : '',
+                                }));
+                            }}
                             options={workspaces.map((workspace) => ({
                                 label: workspace.name,
                                 value: workspace.id,
@@ -145,6 +178,22 @@ function MemberEditSheet({
                             options={workspaceRoleOptions}
                         />
                     </FormGrid>
+
+                    <FormSelect
+                        label="Assigned manager"
+                        value={data.manager_user_id}
+                        onChange={(event) =>
+                            setData('manager_user_id', event.target.value)
+                        }
+                        error={errors.manager_user_id}
+                    >
+                        <option value="">No assigned manager</option>
+                        {eligibleManagers.map((manager) => (
+                            <option key={manager.id} value={manager.id}>
+                                {manager.name}
+                            </option>
+                        ))}
+                    </FormSelect>
 
                     <FormActions
                         submitLabel="Save member"
@@ -169,6 +218,18 @@ function MemberEditSheet({
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                         {workspace.pivot?.role ?? 'member'}
+                                        {workspace.pivot?.manager_user_id
+                                            ? ` · Manager: ${
+                                                  workspaceManagers[
+                                                      workspace.id
+                                                  ]?.find(
+                                                      (manager) =>
+                                                          manager.id ===
+                                                          workspace.pivot
+                                                              ?.manager_user_id,
+                                                  )?.name ?? 'Unassigned'
+                                              }`
+                                            : ''}
                                     </div>
                                 </div>
                                 <Button
@@ -199,10 +260,12 @@ function MemberEditSheet({
 function MemberRow({
     member,
     workspaces,
+    workspaceManagers,
     canManageMembers,
 }: {
     member: Member;
     workspaces: Workspace[];
+    workspaceManagers: Record<number, ManagerOption[]>;
     canManageMembers: boolean;
 }) {
     return (
@@ -221,29 +284,44 @@ function MemberRow({
                     {member.email}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                    {(member.workspaces ?? []).map((workspace) => (
-                        <span
-                            key={workspace.id}
-                            className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1 text-xs"
-                        >
-                            {workspace.name}
-                            <span className="text-muted-foreground">
-                                {workspace.pivot?.role ?? 'member'}
+                    {(member.workspaces ?? []).map((workspace) => {
+                        const assignedManager = workspace.pivot?.manager_user_id
+                            ? workspaceManagers[workspace.id]?.find(
+                                  (manager) =>
+                                      manager.id ===
+                                      workspace.pivot?.manager_user_id,
+                              )
+                            : undefined;
+
+                        return (
+                            <span
+                                key={workspace.id}
+                                className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1 text-xs"
+                            >
+                                {workspace.name}
+                                <span className="text-muted-foreground">
+                                    {workspace.pivot?.role ?? 'member'}
+                                </span>
+                                {assignedManager && (
+                                    <span className="text-muted-foreground">
+                                        Reports to: {assignedManager.name}
+                                    </span>
+                                )}
+                                {canManageMembers && (
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground transition hover:text-destructive"
+                                        onClick={() =>
+                                            removeWorkspace(member, workspace)
+                                        }
+                                        aria-label={`Remove ${member.name} from ${workspace.name}`}
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </button>
+                                )}
                             </span>
-                            {canManageMembers && (
-                                <button
-                                    type="button"
-                                    className="text-muted-foreground transition hover:text-destructive"
-                                    onClick={() =>
-                                        removeWorkspace(member, workspace)
-                                    }
-                                    aria-label={`Remove ${member.name} from ${workspace.name}`}
-                                >
-                                    <Trash2 className="size-3.5" />
-                                </button>
-                            )}
-                        </span>
-                    ))}
+                        );
+                    })}
                     {(member.workspaces ?? []).length === 0 && (
                         <span className="text-sm text-muted-foreground">
                             No workspace access
@@ -253,7 +331,11 @@ function MemberRow({
             </div>
 
             {canManageMembers && (
-                <MemberEditSheet member={member} workspaces={workspaces} />
+                <MemberEditSheet
+                    member={member}
+                    workspaces={workspaces}
+                    workspaceManagers={workspaceManagers}
+                />
             )}
         </div>
     );
@@ -262,6 +344,7 @@ function MemberRow({
 export default function TeamMembersIndex({
     indexEndpoint,
     workspaces,
+    workspaceManagers,
     canManageMembers,
 }: Props) {
     const { page, query, loading, error, updateQuery, setFilter } =
@@ -273,7 +356,9 @@ export default function TeamMembersIndex({
         organization_role: 'member',
         workspace_id: String(workspaces[0]?.id ?? ''),
         workspace_role: 'member',
+        manager_user_id: '',
     });
+    const inviteManagers = workspaceManagers[Number(data.workspace_id)] ?? [];
 
     return (
         <>
@@ -361,10 +446,12 @@ export default function TeamMembersIndex({
                                                 label="Workspace"
                                                 value={data.workspace_id}
                                                 onChange={(event) =>
-                                                    setData(
-                                                        'workspace_id',
-                                                        event.target.value,
-                                                    )
+                                                    setData((current) => ({
+                                                        ...current,
+                                                        workspace_id:
+                                                            event.target.value,
+                                                        manager_user_id: '',
+                                                    }))
                                                 }
                                                 options={workspaces.map(
                                                     (workspace) => ({
@@ -385,6 +472,29 @@ export default function TeamMembersIndex({
                                             }
                                             options={workspaceRoleOptions}
                                         />
+                                        <FormSelect
+                                            label="Assigned manager"
+                                            value={data.manager_user_id}
+                                            onChange={(event) =>
+                                                setData(
+                                                    'manager_user_id',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            error={errors.manager_user_id}
+                                        >
+                                            <option value="">
+                                                No assigned manager
+                                            </option>
+                                            {inviteManagers.map((manager) => (
+                                                <option
+                                                    key={manager.id}
+                                                    value={manager.id}
+                                                >
+                                                    {manager.name}
+                                                </option>
+                                            ))}
+                                        </FormSelect>
                                         <FormActions
                                             submitLabel="Send invite"
                                             processing={processing}
@@ -452,6 +562,7 @@ export default function TeamMembersIndex({
                             key={member.id}
                             member={member}
                             workspaces={workspaces}
+                            workspaceManagers={workspaceManagers}
                             canManageMembers={canManageMembers}
                         />
                     ))}

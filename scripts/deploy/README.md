@@ -11,6 +11,7 @@ Configure these secrets in the GitHub `production` environment:
 - `VPS_USER`
 - `VPS_SSH_KEY`
 - `VPS_APP_DIR` (for example, `/var/www/dev-pulse`)
+- `DISCORD_DEPLOY_WEBHOOK_URL` — Discord channel webhook used for deployment start and completion notifications.
 
 ## Recommended
 
@@ -26,3 +27,5 @@ Configure these secrets in the GitHub `production` environment:
 - `VPS_SKIP_NPM_BUILD` — set to `true` only when assets are built and deployed separately.
 
 The deploy user needs repository access plus permission to run any configured `sudo` commands without an interactive password prompt.
+
+The application enters Laravel maintenance mode before the production checkout is updated. It is brought back up after a successful deployment, and exit traps attempt to bring it back up if checkout or deployment fails.
