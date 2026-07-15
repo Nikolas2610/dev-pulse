@@ -117,10 +117,17 @@ const mainNavItems: RoleNavItem[] = [
 ];
 
 export function AppSidebar() {
-    const capabilities = usePage().props.access.capabilities;
-    const visibleNavItems = mainNavItems.filter(
-        (item) => capabilities[item.capability],
-    );
+    const { access, features } = usePage().props;
+    const visibleNavItems = mainNavItems
+        .filter((item) => access.capabilities[item.capability])
+        .map((item) => ({
+            ...item,
+            children: item.children?.filter(
+                (child) =>
+                    features.atlassianIntegrations ||
+                    !['Jira', 'Bitbucket'].includes(child.title),
+            ),
+        }));
 
     return (
         <Sidebar collapsible="icon" variant="inset">

@@ -9,6 +9,7 @@ use App\Models\IntegrationUser;
 use App\Models\JiraProject;
 use App\Models\Organization;
 use App\Models\StandupQuestion;
+use App\Models\StandupResponse;
 use App\Models\StandupRun;
 use App\Models\StandupTemplate;
 use App\Models\User;
@@ -22,12 +23,20 @@ class AtlassianIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['features.atlassian_integrations' => true]);
+    }
+
     public function test_user_can_attach_visible_jira_item_and_snapshot_is_immutable(): void
     {
         [$user, $organization, $workspace] = $this->workspaceUser();
         $template = StandupTemplate::factory()->for($organization)->for($workspace)->create(['created_by_user_id' => $user->id]);
         $question = StandupQuestion::create(['standup_template_id' => $template->id, 'question_text' => 'Today?', 'question_key' => 'today', 'answer_type' => 'textarea', 'is_required' => true, 'sort_order' => 1]);
         $run = StandupRun::factory()->for($organization)->for($workspace)->for($template)->create(['status' => 'active']);
+        StandupResponse::create(['organization_id' => $organization->id, 'workspace_id' => $workspace->id, 'standup_run_id' => $run->id, 'user_id' => $user->id, 'status' => 'pending']);
         $integration = Integration::factory()->for($organization)->create(['workspace_id' => null, 'provider' => 'jira', 'settings_json' => ['cloud_id' => 'cloud-1', 'site_url' => 'https://example.atlassian.net']]);
         $identity = IntegrationUser::create(['integration_id' => $integration->id, 'user_id' => $user->id, 'provider' => 'jira', 'external_user_id' => 'account-1', 'display_name' => $user->name]);
         $project = JiraProject::create(['integration_id' => $integration->id, 'external_id' => '10000', 'project_key' => 'DEV', 'name' => 'Development']);
@@ -46,6 +55,17 @@ class AtlassianIntegrationTest extends TestCase
         $this->assertDatabaseHas('standup_response_items', ['external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration', 'relation' => 'worked_on']);
         $item->update(['title' => 'Renamed remotely']);
         $this->assertDatabaseHas('standup_response_items', ['external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration']);
+    }
+
+    public function test_atlassian_integration_pages_are_hidden_when_feature_is_disabled(): void
+    {
+        config(['features.atlassian_integrations' => false]);
+
+        [$user] = $this->workspaceUser();
+
+        $this->actingAs($user)
+            ->get(route('integrations.atlassian.index', ['provider' => 'jira']))
+            ->assertNotFound();
     }
 
     public function test_bitbucket_webhook_requires_valid_signature_and_is_deduplicated(): void

@@ -88,7 +88,9 @@ class DashboardController extends Controller
                     ...$weekStats,
                 ],
             ],
-            'engineeringWork' => $workspace ? $this->engineeringWork($workspace->id, (int) ($workspace->stale_pr_days ?? 3)) : null,
+            'engineeringWork' => $workspace && config('features.atlassian_integrations')
+                ? $this->engineeringWork($workspace->id, (int) ($workspace->stale_pr_days ?? 3))
+                : null,
         ]);
     }
 
