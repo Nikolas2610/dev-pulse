@@ -1008,6 +1008,10 @@ class StandupRuntimeTest extends TestCase
                 'status' => 'active',
             ]);
 
+        Http::fake([
+            'slack.com/api/chat.update' => Http::response(['ok' => true]),
+        ]);
+
         $submissionPayload = [
             'type' => 'view_submission',
             'user' => ['id' => 'U123'],
@@ -1016,6 +1020,8 @@ class StandupRuntimeTest extends TestCase
                 'private_metadata' => json_encode([
                     'run_id' => $run->id,
                     'integration_id' => $integration->id,
+                    'channel_id' => 'D123',
+                    'message_ts' => '123.456',
                 ]),
                 'state' => [
                     'values' => [
@@ -1047,6 +1053,10 @@ class StandupRuntimeTest extends TestCase
             'standup_question_id' => $question->id,
             'answer_text' => 'Working on the Slack bot flow',
         ]);
+        Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.update'
+            && $request['channel'] === 'D123'
+            && $request['ts'] === '123.456'
+            && $request['text'] === 'You submitted this standup.');
     }
 
     public function test_slack_user_can_skip_without_a_reason_and_prompt_is_replaced(): void
@@ -1104,6 +1114,7 @@ class StandupRuntimeTest extends TestCase
         $this->postSignedSlackPayload([
             'type' => 'block_actions',
             'trigger_id' => 'trigger-skip',
+            'user' => ['id' => 'U123'],
             'channel' => ['id' => 'D123'],
             'message' => ['ts' => '123.456'],
             'actions' => [[
@@ -1149,6 +1160,25 @@ class StandupRuntimeTest extends TestCase
             && $request['ts'] === '123.456'
             && $request['text'] === 'You chose to skip this standup.'
             && count($request['blocks']) === 1);
+
+        $this->postSignedSlackPayload([
+            'type' => 'block_actions',
+            'trigger_id' => 'stale-trigger',
+            'user' => ['id' => 'U123'],
+            'channel' => ['id' => 'D123'],
+            'message' => ['ts' => '111.222'],
+            'actions' => [[
+                'action_id' => 'join_standup',
+                'value' => (string) $run->id,
+            ]],
+        ], 'test-signing-secret')->assertOk();
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.update'
+            && $request['ts'] === '111.222'
+            && $request['text'] === 'You chose to skip this standup.');
+        $this->assertCount(1, Http::recorded(
+            fn ($request) => $request->url() === 'https://slack.com/api/views.open',
+        ));
     }
 
     public function test_slack_message_answer_stores_answer_and_sends_next_question(): void
