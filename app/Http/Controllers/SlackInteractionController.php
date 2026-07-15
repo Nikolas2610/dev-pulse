@@ -61,7 +61,13 @@ class SlackInteractionController extends Controller
             $this->verifySignature($request, $integration);
 
             if ($actionId === 'skip_standup') {
-                $slack->openSkipStandupModal($integration, (string) ($payload['trigger_id'] ?? ''), $run);
+                $slack->openSkipStandupModal(
+                    $integration,
+                    (string) ($payload['trigger_id'] ?? ''),
+                    $run,
+                    (string) ($payload['channel']['id'] ?? ''),
+                    (string) ($payload['message']['ts'] ?? ''),
+                );
             } else {
                 $slack->openStandupModal($integration, (string) ($payload['trigger_id'] ?? ''), $run);
             }
@@ -80,9 +86,6 @@ class SlackInteractionController extends Controller
             $run = StandupRun::query()
                 ->with('organization', 'workspace', 'template.questions')
                 ->findOrFail((int) ($metadata['run_id'] ?? 0));
-            if ($run->status === 'completed') {
-                return $this->modalErrors($run, __('This standup is closed. Please answer the latest standup prompt.'));
-            }
             $slackUserId = $payload['user']['id'] ?? null;
             $integrationUser = $slackUserId
                 ? IntegrationUser::query()
@@ -98,6 +101,16 @@ class SlackInteractionController extends Controller
 
             $existingResponse = $run->responses()->where('user_id', $integrationUser->user_id)->first();
 
+            if ($existingResponse
+                && $existingResponse->external_message_id === ($payload['view']['id'] ?? null)
+                && $existingResponse->status !== 'pending') {
+                return response()->json(['response_action' => 'clear']);
+            }
+
+            if ($run->status === 'completed') {
+                return $this->modalErrors($run, __('This standup is closed. Please answer the latest standup prompt.'));
+            }
+
             if ($existingResponse && $existingResponse->status !== 'pending') {
                 $blockId = ($metadata['mode'] ?? 'submit') === 'skip'
                     ? 'skip_reason'
@@ -112,13 +125,6 @@ class SlackInteractionController extends Controller
             if (($metadata['mode'] ?? 'submit') === 'skip') {
                 $reason = trim((string) ($payload['view']['state']['values']['skip_reason']['reason']['value'] ?? ''));
 
-                if ($reason === '') {
-                    return response()->json([
-                        'response_action' => 'errors',
-                        'errors' => ['skip_reason' => __('Please provide a reason for skipping.')],
-                    ]);
-                }
-
                 $response = $run->responses()->updateOrCreate(
                     ['user_id' => $integrationUser->user_id],
                     [
@@ -128,7 +134,7 @@ class SlackInteractionController extends Controller
                         'submitted_at' => now(),
                         'source' => 'slack',
                         'external_message_id' => $payload['view']['id'] ?? null,
-                        'raw_json' => ['skip_reason' => $reason],
+                        'raw_json' => $reason === '' ? [] : ['skip_reason' => $reason],
                     ],
                 );
                 $response->answers()->delete();
@@ -143,6 +149,11 @@ class SlackInteractionController extends Controller
                     externalId: $payload['view']['id'] ?? null,
                 );
                 $completion->completeIfAllResponsesSubmitted($run);
+                $this->afterResponse(fn () => $slack->updateStandupPromptAsSkipped(
+                    $integration,
+                    (string) ($metadata['channel_id'] ?? ''),
+                    (string) ($metadata['message_ts'] ?? ''),
+                ));
 
                 return response()->json(['response_action' => 'clear']);
             }
