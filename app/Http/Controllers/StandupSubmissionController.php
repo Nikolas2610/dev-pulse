@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExternalWorkItem;
 use App\Models\StandupResponse;
 use App\Models\StandupRun;
 use App\Services\ActivityEventService;
@@ -9,6 +10,7 @@ use App\Services\CurrentOrganization;
 use App\Services\StandupQuestionFlowService;
 use App\Services\StandupRunCompletionService;
 use App\Services\StandupSubmissionFinalizer;
+use App\Services\WorkItemSuggestionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +20,7 @@ use Inertia\Response;
 
 class StandupSubmissionController extends Controller
 {
-    public function create(Request $request, StandupRun $run, CurrentOrganization $currentOrganization): Response|RedirectResponse
+    public function create(Request $request, StandupRun $run, CurrentOrganization $currentOrganization, WorkItemSuggestionService $suggestions): Response|RedirectResponse
     {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $run->organization_id === $organization->id, 404);
@@ -37,6 +39,7 @@ class StandupSubmissionController extends Controller
 
         return Inertia::render('standup-runs/submit', [
             'run' => $run->load('workspace', 'template.questions'),
+            'suggestedWorkItems' => $suggestions->forUser($request->user(), $run->workspace),
         ]);
     }
 
@@ -48,6 +51,7 @@ class StandupSubmissionController extends Controller
         StandupQuestionFlowService $questionFlow,
         StandupRunCompletionService $completion,
         StandupSubmissionFinalizer $submissionFinalizer,
+        WorkItemSuggestionService $suggestions,
     ): RedirectResponse {
         $organization = $currentOrganization->fromRequest($request);
         abort_unless($organization && $run->organization_id === $organization->id, 404);
@@ -73,6 +77,9 @@ class StandupSubmissionController extends Controller
         $validated = $request->validate([
             'answers' => ['required', 'array'],
             'answers.*' => ['nullable', 'string'],
+            'work_items' => ['sometimes', 'array', 'max:100'],
+            'work_items.*.external_work_item_id' => ['required', 'integer'],
+            'work_items.*.relation' => ['required', 'string', 'in:worked_on,planned,blocker,review'],
         ]);
         $validatedAnswers = is_array($validated['answers'] ?? null) ? $validated['answers'] : [];
 
@@ -94,7 +101,15 @@ class StandupSubmissionController extends Controller
             ]);
         }
 
-        $response = DB::transaction(function () use ($request, $run, $validatedAnswers, $events, $visibleQuestions, $completion): StandupResponse {
+        $selectedItems = is_array($validated['work_items'] ?? null) ? $validated['work_items'] : [];
+        $allowedItems = $suggestions->forUser($request->user(), $run->workspace)->keyBy('id');
+        foreach ($selectedItems as $selectedItem) {
+            if (! is_array($selectedItem) || ! $allowedItems->has((int) ($selectedItem['external_work_item_id'] ?? 0))) {
+                throw ValidationException::withMessages(['work_items' => __('One or more selected work items are not available to you.')]);
+            }
+        }
+
+        $response = DB::transaction(function () use ($request, $run, $validatedAnswers, $events, $visibleQuestions, $completion, $selectedItems, $allowedItems): StandupResponse {
             $response = StandupResponse::firstOrNew([
                 'standup_run_id' => $run->id,
                 'user_id' => $request->user()->id,
@@ -114,6 +129,21 @@ class StandupSubmissionController extends Controller
                 $response->answers()->create([
                     'standup_question_id' => $question->id,
                     'answer_text' => $validatedAnswers[$question->id] ?? null,
+                ]);
+            }
+
+            $response->items()->delete();
+            foreach ($selectedItems as $selected) {
+                /** @var ExternalWorkItem $item */
+                $item = $allowedItems->get((int) $selected['external_work_item_id']);
+                $response->items()->create([
+                    'external_work_item_id' => $item->id,
+                    'relation' => $selected['relation'],
+                    'provider' => $item->provider,
+                    'external_key' => $item->external_key,
+                    'title_snapshot' => $item->title,
+                    'status_snapshot' => $item->status,
+                    'url_snapshot' => $item->url,
                 ]);
             }
 

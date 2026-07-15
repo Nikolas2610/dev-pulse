@@ -341,7 +341,8 @@ class SlackIntegrationTest extends TestCase
             ->actingAs($user)
             ->get(route('integrations.slack.index'))
             ->assertInertia(fn ($page) => $page
-                ->component('integrations/slack')
+                ->component('integrations/index')
+                ->where('provider', 'slack')
                 ->has('slackUsers', 2)
                 ->where('slackUsers.0.external_user_id', 'U_UNLINKED')
                 ->where('slackUsers.0.is_linked', false)

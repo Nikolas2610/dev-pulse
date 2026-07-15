@@ -88,6 +88,9 @@ class HandleInertiaRequests extends Middleware
                     : null,
                 'capabilities' => $roleAccess->capabilities($organization, $currentWorkspace, $user),
             ],
+            'features' => [
+                'atlassianIntegrations' => (bool) config('features.atlassian_integrations'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -293,8 +293,13 @@ class SlackIntegrationService
         $this->ensureSlackOk($payload, 'views.open', $integration);
     }
 
-    public function openSkipStandupModal(Integration $integration, string $triggerId, StandupRun $run): void
-    {
+    public function openSkipStandupModal(
+        Integration $integration,
+        string $triggerId,
+        StandupRun $run,
+        ?string $channel = null,
+        ?string $messageTs = null,
+    ): void {
         $payload = $this->postSlackApi($integration, 'views.open', [
             'trigger_id' => $triggerId,
             'view' => [
@@ -304,6 +309,8 @@ class SlackIntegrationService
                     'run_id' => $run->id,
                     'integration_id' => $integration->id,
                     'mode' => 'skip',
+                    'channel_id' => $channel,
+                    'message_ts' => $messageTs,
                 ]),
                 'title' => ['type' => 'plain_text', 'text' => 'Skip standup'],
                 'submit' => ['type' => 'plain_text', 'text' => 'Confirm skip'],
@@ -311,7 +318,8 @@ class SlackIntegrationService
                 'blocks' => [[
                     'type' => 'input',
                     'block_id' => 'skip_reason',
-                    'label' => ['type' => 'plain_text', 'text' => 'Why are you skipping today?'],
+                    'optional' => true,
+                    'label' => ['type' => 'plain_text', 'text' => 'Reason (optional)'],
                     'element' => [
                         'type' => 'plain_text_input',
                         'action_id' => 'reason',
@@ -323,6 +331,28 @@ class SlackIntegrationService
         ]);
 
         $this->ensureSlackOk($payload, 'views.open', $integration);
+    }
+
+    public function updateStandupPromptAsSkipped(Integration $integration, string $channel, string $messageTs): void
+    {
+        if ($channel === '' || $messageTs === '') {
+            return;
+        }
+
+        $payload = $this->postSlackApi($integration, 'chat.update', [
+            'channel' => $channel,
+            'ts' => $messageTs,
+            'text' => 'You chose to skip this standup.',
+            'blocks' => [[
+                'type' => 'section',
+                'text' => [
+                    'type' => 'mrkdwn',
+                    'text' => 'You chose to skip this standup.',
+                ],
+            ]],
+        ]);
+
+        $this->ensureSlackOk($payload, 'chat.update', $integration);
     }
 
     public function postStandupQuestion(
