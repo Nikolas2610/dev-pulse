@@ -4,6 +4,8 @@ import {
     BriefcaseBusiness,
     CalendarClock,
     ClipboardList,
+    GitPullRequest,
+    ListTodo,
     LayoutGrid,
     MessageSquare,
     Activity,
@@ -85,24 +87,47 @@ const mainNavItems: RoleNavItem[] = [
         capability: 'viewTeam',
     },
     {
-        title: 'Slack',
+        title: 'Integrations',
         href: '/integrations/slack',
         icon: Plug,
         capability: 'manageIntegrations',
-    },
-    {
-        title: 'Discord',
-        href: '/integrations/discord',
-        icon: Plug,
-        capability: 'manageIntegrations',
+        children: [
+            {
+                title: 'Slack',
+                href: '/integrations/slack',
+                icon: Plug,
+            },
+            {
+                title: 'Discord',
+                href: '/integrations/discord',
+                icon: Plug,
+            },
+            {
+                title: 'Jira',
+                href: '/integrations/jira',
+                icon: ListTodo,
+            },
+            {
+                title: 'Bitbucket',
+                href: '/integrations/bitbucket',
+                icon: GitPullRequest,
+            },
+        ],
     },
 ];
 
 export function AppSidebar() {
-    const capabilities = usePage().props.access.capabilities;
-    const visibleNavItems = mainNavItems.filter(
-        (item) => capabilities[item.capability],
-    );
+    const { access, features } = usePage().props;
+    const visibleNavItems = mainNavItems
+        .filter((item) => access.capabilities[item.capability])
+        .map((item) => ({
+            ...item,
+            children: item.children?.filter(
+                (child) =>
+                    features.atlassianIntegrations ||
+                    !['Jira', 'Bitbucket'].includes(child.title),
+            ),
+        }));
 
     return (
         <Sidebar collapsible="icon" variant="inset">

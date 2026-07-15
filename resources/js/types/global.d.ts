@@ -14,6 +14,9 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             access: Access;
+            features: {
+                atlassianIntegrations: boolean;
+            };
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

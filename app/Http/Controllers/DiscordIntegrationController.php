@@ -21,7 +21,8 @@ class DiscordIntegrationController extends Controller
             ? $this->workspaceIntegration($organization->id, $workspace->id)
             : null;
 
-        return Inertia::render('integrations/discord', [
+        return Inertia::render('integrations/index', [
+            'provider' => 'discord',
             'integration' => $integration,
             'isConfigured' => filled($integration?->webhook_url),
             'canManageIntegration' => $organization

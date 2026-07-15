@@ -44,6 +44,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $bot_token
  * @property string|null $webhook_url
  * @property array<int, string>|null $scopes_json
+ * @property array<string, mixed>|null $settings_json
  */
 class Integration extends Model
 {
@@ -65,6 +66,14 @@ class Integration extends Model
             'is_active' => 'boolean',
             'connected_at' => 'datetime',
         ];
+    }
+
+    /** @return array<string, mixed> */
+    public function settings(): array
+    {
+        $settings = $this->getAttribute('settings_json');
+
+        return is_array($settings) ? $settings : [];
     }
 
     /** @return BelongsTo<Organization, $this> */
@@ -89,5 +98,23 @@ class Integration extends Model
     public function channels(): HasMany
     {
         return $this->hasMany(IntegrationChannel::class);
+    }
+
+    /** @return HasMany<JiraProject, $this> */
+    public function jiraProjects(): HasMany
+    {
+        return $this->hasMany(JiraProject::class);
+    }
+
+    /** @return HasMany<BitbucketRepository, $this> */
+    public function bitbucketRepositories(): HasMany
+    {
+        return $this->hasMany(BitbucketRepository::class);
+    }
+
+    /** @return HasMany<ExternalWorkItem, $this> */
+    public function workItems(): HasMany
+    {
+        return $this->hasMany(ExternalWorkItem::class);
     }
 }
