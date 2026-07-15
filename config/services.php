@@ -39,4 +39,16 @@ return [
         ],
     ],
 
+    'jira' => [
+        'client_id' => env('JIRA_CLIENT_ID'),
+        'client_secret' => env('JIRA_CLIENT_SECRET'),
+        'redirect_uri' => env('JIRA_REDIRECT_URI', env('APP_URL').'/integrations/jira/callback'),
+    ],
+
+    'bitbucket' => [
+        'client_id' => env('BITBUCKET_CLIENT_ID'),
+        'client_secret' => env('BITBUCKET_CLIENT_SECRET'),
+        'redirect_uri' => env('BITBUCKET_REDIRECT_URI', env('APP_URL').'/integrations/bitbucket/callback'),
+    ],
+
 ];

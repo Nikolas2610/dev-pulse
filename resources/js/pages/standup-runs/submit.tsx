@@ -5,7 +5,9 @@ import {
     FormMultiSelect,
     FormSelect,
 } from '@/components/forms/form-components';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -15,8 +17,15 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import type { AttachedWorkItem, ExternalWorkItem } from '@/types';
 
-export default function StandupSubmit({ run }: { run: any }) {
+export default function StandupSubmit({
+    run,
+    suggestedWorkItems = [],
+}: {
+    run: any;
+    suggestedWorkItems?: ExternalWorkItem[];
+}) {
     const [skipOpen, setSkipOpen] = useState(false);
     const [skipReason, setSkipReason] = useState('');
     const questions = run.template?.questions ?? [];
@@ -24,6 +33,7 @@ export default function StandupSubmit({ run }: { run: any }) {
         answers: Object.fromEntries(
             questions.map((question: any) => [question.id, '']),
         ),
+        work_items: [] as AttachedWorkItem[],
     });
     const formErrors = errors as Record<string, string>;
     const visibleQuestions = questions.filter((question: any) => {
@@ -50,6 +60,41 @@ export default function StandupSubmit({ run }: { run: any }) {
             ...(data.answers as Record<string, string>),
             [questionId]: answer,
         });
+    };
+
+    const setWorkItem = (item: ExternalWorkItem, checked: boolean) => {
+        const current = data.work_items as AttachedWorkItem[];
+        setData(
+            'work_items',
+            checked
+                ? [
+                      ...current,
+                      {
+                          external_work_item_id: item.id,
+                          relation:
+                              item.type === 'pull_request'
+                                  ? 'review'
+                                  : 'planned',
+                      },
+                  ]
+                : current.filter(
+                      (selected) => selected.external_work_item_id !== item.id,
+                  ),
+        );
+    };
+
+    const setWorkItemRelation = (
+        itemId: number,
+        relation: AttachedWorkItem['relation'],
+    ) => {
+        setData(
+            'work_items',
+            (data.work_items as AttachedWorkItem[]).map((selected) =>
+                selected.external_work_item_id === itemId
+                    ? { ...selected, relation }
+                    : selected,
+            ),
+        );
     };
 
     return (
@@ -249,6 +294,116 @@ export default function StandupSubmit({ run }: { run: any }) {
                                     )}
                                 </div>
                             ),
+                        )}
+                        {suggestedWorkItems.length > 0 && (
+                            <section
+                                className="flex flex-col gap-3 border-t pt-5"
+                                aria-labelledby="suggested-work-title"
+                            >
+                                <div>
+                                    <h3
+                                        id="suggested-work-title"
+                                        className="font-semibold"
+                                    >
+                                        Suggested work
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Attach Jira issues and pull requests to
+                                        this update.
+                                    </p>
+                                </div>
+                                {suggestedWorkItems.map((item) => {
+                                    const selected = (
+                                        data.work_items as AttachedWorkItem[]
+                                    ).find(
+                                        (candidate) =>
+                                            candidate.external_work_item_id ===
+                                            item.id,
+                                    );
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="grid items-start gap-3 rounded-lg border p-4 md:grid-cols-[auto_1fr_180px]"
+                                        >
+                                            <Checkbox
+                                                checked={Boolean(selected)}
+                                                onCheckedChange={(checked) =>
+                                                    setWorkItem(
+                                                        item,
+                                                        checked === true,
+                                                    )
+                                                }
+                                                aria-label={`Attach ${item.title}`}
+                                            />
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <Badge variant="outline">
+                                                        {item.provider ===
+                                                        'jira'
+                                                            ? item.external_key
+                                                            : item
+                                                                  .bitbucket_repository
+                                                                  ?.full_name}
+                                                    </Badge>
+                                                    {item.is_blocked && (
+                                                        <Badge variant="destructive">
+                                                            Blocked
+                                                        </Badge>
+                                                    )}
+                                                    <Badge variant="secondary">
+                                                        {item.status}
+                                                    </Badge>
+                                                </div>
+                                                <a
+                                                    className="mt-1 block font-medium hover:underline"
+                                                    href={item.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    {item.title}
+                                                </a>
+                                            </div>
+                                            {selected && (
+                                                <FormSelect
+                                                    label="Relation"
+                                                    value={selected.relation}
+                                                    onChange={(event) =>
+                                                        setWorkItemRelation(
+                                                            item.id,
+                                                            event.target
+                                                                .value as AttachedWorkItem['relation'],
+                                                        )
+                                                    }
+                                                    options={[
+                                                        {
+                                                            value: 'worked_on',
+                                                            label: 'Worked on',
+                                                        },
+                                                        {
+                                                            value: 'planned',
+                                                            label: 'Planned',
+                                                        },
+                                                        {
+                                                            value: 'blocker',
+                                                            label: 'Blocker',
+                                                        },
+                                                        {
+                                                            value: 'review',
+                                                            label: 'Review',
+                                                        },
+                                                    ]}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {formErrors.work_items && (
+                                    <p className="text-sm text-destructive">
+                                        {formErrors.work_items}
+                                    </p>
+                                )}
+                            </section>
                         )}
                     </div>
                 </form>
