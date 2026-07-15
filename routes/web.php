@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\IndexDataController;
+use App\Http\Controllers\AtlassianIntegrationController;
+use App\Http\Controllers\AtlassianWebhookController;
 use App\Http\Controllers\AutomationHealthController;
 use App\Http\Controllers\ContextController;
 use App\Http\Controllers\DashboardController;
@@ -24,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 Route::inertia('/', 'welcome')->name('home');
 Route::post('slack/interactions', SlackInteractionController::class)->name('slack.interactions');
 Route::post('slack/events', [SlackInteractionController::class, 'events'])->name('slack.events');
+Route::post('webhooks/{provider}/{integration}', AtlassianWebhookController::class)->whereIn('provider', ['jira', 'bitbucket'])->name('atlassian.webhooks');
 Route::middleware('guest')->group(function () {
     Route::get('invitations/{token}', [InvitationController::class, 'show'])->name('invitations.accept');
     Route::post('invitations/accept', [InvitationController::class, 'store'])->middleware('throttle:6,1')->name('invitations.store');
@@ -97,6 +100,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('workspaces/{workspace}', [WorkspaceController::class, 'destroy'])->name('workspaces.destroy');
     });
     Route::middleware('role-capability:manageIntegrations')->group(function () {
+        Route::redirect('integrations', '/integrations/slack')->name('integrations.index');
+        Route::get('integrations/{provider}', [AtlassianIntegrationController::class, 'index'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.index');
+        Route::get('integrations/{provider}/connect', [AtlassianIntegrationController::class, 'connect'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.connect');
+        Route::get('integrations/{provider}/callback', [AtlassianIntegrationController::class, 'callback'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.callback');
+        Route::post('integrations/{provider}/{integration}/sync', [AtlassianIntegrationController::class, 'sync'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.sync');
+        Route::put('integrations/{provider}/{integration}/connection', [AtlassianIntegrationController::class, 'configureConnection'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.connection');
+        Route::delete('integrations/{provider}/{integration}', [AtlassianIntegrationController::class, 'disconnect'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.disconnect');
+        Route::put('integrations/{provider}/{integration}/resources', [AtlassianIntegrationController::class, 'assignResources'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.resources');
+        Route::put('integrations/bitbucket/{integration}/repositories/{repository}/users', [AtlassianIntegrationController::class, 'assignRepositoryUsers'])->name('integrations.bitbucket.repository-users');
+        Route::put('integrations/{provider}/{integration}/users/{externalUser}', [AtlassianIntegrationController::class, 'mapUser'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.users');
         Route::get('integrations/discord', [DiscordIntegrationController::class, 'index'])->name('integrations.discord.index');
         Route::post('integrations/discord', [DiscordIntegrationController::class, 'store'])->name('integrations.discord.store');
         Route::get('integrations/slack', [SlackIntegrationController::class, 'index'])->name('integrations.slack.index');

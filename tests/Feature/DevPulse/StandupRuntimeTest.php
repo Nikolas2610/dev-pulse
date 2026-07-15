@@ -1008,7 +1008,7 @@ class StandupRuntimeTest extends TestCase
                 'status' => 'active',
             ]);
 
-        $this->postSignedSlackPayload([
+        $submissionPayload = [
             'type' => 'view_submission',
             'user' => ['id' => 'U123'],
             'view' => [
@@ -1027,7 +1027,13 @@ class StandupRuntimeTest extends TestCase
                     ],
                 ],
             ],
-        ], 'test-signing-secret')
+        ];
+
+        $this->postSignedSlackPayload($submissionPayload, 'test-signing-secret')
+            ->assertOk()
+            ->assertJson(['response_action' => 'clear']);
+
+        $this->postSignedSlackPayload($submissionPayload, 'test-signing-secret')
             ->assertOk()
             ->assertJson(['response_action' => 'clear']);
 
@@ -1041,6 +1047,108 @@ class StandupRuntimeTest extends TestCase
             'standup_question_id' => $question->id,
             'answer_text' => 'Working on the Slack bot flow',
         ]);
+    }
+
+    public function test_slack_user_can_skip_without_a_reason_and_prompt_is_replaced(): void
+    {
+        [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
+        StandupQuestion::factory()->for($template)->create();
+        $integration = Integration::factory()->for($organization)->for($workspace)->create([
+            'provider' => 'slack',
+            'external_id' => 'T123',
+            'bot_token' => 'xoxb-skip',
+            'signing_secret' => 'test-signing-secret',
+        ]);
+        IntegrationUser::create([
+            'integration_id' => $integration->id,
+            'user_id' => $user->id,
+            'provider' => 'slack',
+            'external_user_id' => 'U123',
+            'external_email' => $user->email,
+        ]);
+        $schedule = StandupSchedule::create([
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'standup_template_id' => $template->id,
+            'name' => 'Slack Daily Focus',
+            'timezone' => 'Asia/Nicosia',
+            'time_of_day' => '08:30:00',
+            'days_of_week' => [1, 2, 3, 4, 5],
+            'delivery_method' => 'slack_dm',
+            'target_integration_id' => $integration->id,
+            'is_active' => true,
+            'created_by_user_id' => $user->id,
+        ]);
+        $run = StandupRun::factory()
+            ->for($organization)
+            ->for($workspace)
+            ->for($template)
+            ->create([
+                'standup_schedule_id' => $schedule->id,
+                'status' => 'active',
+            ]);
+        StandupResponse::create([
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'standup_run_id' => $run->id,
+            'user_id' => $user->id,
+            'status' => 'pending',
+            'source' => 'slack',
+        ]);
+
+        Http::fake([
+            'slack.com/api/views.open' => Http::response(['ok' => true]),
+            'slack.com/api/chat.update' => Http::response(['ok' => true]),
+        ]);
+
+        $this->postSignedSlackPayload([
+            'type' => 'block_actions',
+            'trigger_id' => 'trigger-skip',
+            'channel' => ['id' => 'D123'],
+            'message' => ['ts' => '123.456'],
+            'actions' => [[
+                'action_id' => 'skip_standup',
+                'value' => (string) $run->id,
+            ]],
+        ], 'test-signing-secret')->assertOk();
+
+        $metadata = null;
+        Http::assertSent(function ($request) use (&$metadata): bool {
+            if ($request->url() !== 'https://slack.com/api/views.open') {
+                return false;
+            }
+
+            $metadata = json_decode($request['view']['private_metadata'], true);
+
+            return $request['view']['blocks'][0]['optional'] === true
+                && $metadata['channel_id'] === 'D123'
+                && $metadata['message_ts'] === '123.456';
+        });
+
+        $this->postSignedSlackPayload([
+            'type' => 'view_submission',
+            'user' => ['id' => 'U123'],
+            'view' => [
+                'id' => 'V-SKIP',
+                'private_metadata' => json_encode($metadata),
+                'state' => ['values' => []],
+            ],
+        ], 'test-signing-secret')
+            ->assertOk()
+            ->assertJson(['response_action' => 'clear']);
+
+        $response = StandupResponse::query()
+            ->where('standup_run_id', $run->id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $this->assertSame('skipped', $response->status);
+        $this->assertSame([], $response->raw_json);
+        Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.update'
+            && $request['channel'] === 'D123'
+            && $request['ts'] === '123.456'
+            && $request['text'] === 'You chose to skip this standup.'
+            && count($request['blocks']) === 1);
     }
 
     public function test_slack_message_answer_stores_answer_and_sends_next_question(): void

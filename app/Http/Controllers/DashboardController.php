@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExternalWorkItem;
 use App\Models\StandupAnswer;
 use App\Models\StandupResponse;
 use App\Models\StandupRun;
@@ -36,7 +37,7 @@ class DashboardController extends Controller
             : null;
         $now = now($organization ? $organization->timezone : config('app.timezone'));
         $run = StandupRun::query()
-            ->with(['workspace', 'template.questions', 'responses.user', 'responses.answers.question', 'summary'])
+            ->with(['workspace', 'template.questions', 'responses.user', 'responses.answers.question', 'responses.items', 'summary'])
             ->where('organization_id', $organization?->id)
             ->when($workspace, fn ($query) => $query->where('workspace_id', $workspace->id))
             ->when(! $workspace, fn ($query) => $query->whereRaw('1 = 0'))
@@ -49,7 +50,8 @@ class DashboardController extends Controller
             ->where('organization_id', $organization?->id)
             ->when($workspace, fn ($query) => $query->where('workspace_id', $workspace->id))
             ->when(! $workspace, fn ($query) => $query->whereRaw('1 = 0'))
-            ->whereBetween('run_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereDate('run_date', '>=', $weekStart->toDateString())
+            ->whereDate('run_date', '<=', $weekEnd->toDateString())
             ->where('status', '!=', 'cancelled')
             ->get(['id', 'status']);
         $todayStats = $this->participationStats(collect($run ? [$run->id] : []));
@@ -86,7 +88,26 @@ class DashboardController extends Controller
                     ...$weekStats,
                 ],
             ],
+            'engineeringWork' => $workspace && config('features.atlassian_integrations')
+                ? $this->engineeringWork($workspace->id, (int) ($workspace->stale_pr_days ?? 3))
+                : null,
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function engineeringWork(int $workspaceId, int $staleDays): array
+    {
+        $base = ExternalWorkItem::query()->where('workspace_id', $workspaceId)->open();
+
+        return [
+            'jiraOpen' => (clone $base)->where('type', 'jira_issue')->count(),
+            'pullRequests' => (clone $base)->where('type', 'pull_request')->count(),
+            'blocked' => (clone $base)->where('is_blocked', true)->count(),
+            'pendingReviews' => (clone $base)->where('type', 'pull_request')->whereJsonLength('reviewer_external_ids', '>', 0)->count(),
+            'stalePullRequests' => (clone $base)->where('type', 'pull_request')->where('provider_updated_at', '<=', now()->subDays($staleDays))->count(),
+            'lastSyncedAt' => (clone $base)->max('last_synced_at'),
+            'items' => (clone $base)->with(['assignee.user:id,name', 'author.user:id,name'])->orderByDesc('is_blocked')->orderByDesc('provider_updated_at')->limit(12)->get(),
+        ];
     }
 
     /**
