@@ -247,8 +247,13 @@ class SlackIntegrationService
         return $payload['ts'] ?? null;
     }
 
-    public function openStandupModal(Integration $integration, string $triggerId, StandupRun $run): void
-    {
+    public function openStandupModal(
+        Integration $integration,
+        string $triggerId,
+        StandupRun $run,
+        ?string $channel = null,
+        ?string $messageTs = null,
+    ): void {
         $run->loadMissing('workspace', 'template.questions');
 
         $payload = $this->postSlackApi($integration, 'views.open', [
@@ -260,6 +265,8 @@ class SlackIntegrationService
                     'run_id' => $run->id,
                     'integration_id' => $integration->id,
                     'mode' => 'submit',
+                    'channel_id' => $channel,
+                    'message_ts' => $messageTs,
                 ]),
                 'title' => [
                     'type' => 'plain_text',
@@ -319,7 +326,7 @@ class SlackIntegrationService
                     'type' => 'input',
                     'block_id' => 'skip_reason',
                     'optional' => true,
-                    'label' => ['type' => 'plain_text', 'text' => 'Reason (optional)'],
+                    'label' => ['type' => 'plain_text', 'text' => 'Reason'],
                     'element' => [
                         'type' => 'plain_text_input',
                         'action_id' => 'reason',
@@ -335,6 +342,16 @@ class SlackIntegrationService
 
     public function updateStandupPromptAsSkipped(Integration $integration, string $channel, string $messageTs): void
     {
+        $this->updateStandupPrompt($integration, $channel, $messageTs, 'You chose to skip this standup.');
+    }
+
+    public function updateStandupPromptAsSubmitted(Integration $integration, string $channel, string $messageTs): void
+    {
+        $this->updateStandupPrompt($integration, $channel, $messageTs, 'You submitted this standup.');
+    }
+
+    private function updateStandupPrompt(Integration $integration, string $channel, string $messageTs, string $text): void
+    {
         if ($channel === '' || $messageTs === '') {
             return;
         }
@@ -342,12 +359,12 @@ class SlackIntegrationService
         $payload = $this->postSlackApi($integration, 'chat.update', [
             'channel' => $channel,
             'ts' => $messageTs,
-            'text' => 'You chose to skip this standup.',
+            'text' => $text,
             'blocks' => [[
                 'type' => 'section',
                 'text' => [
                     'type' => 'mrkdwn',
-                    'text' => 'You chose to skip this standup.',
+                    'text' => $text,
                 ],
             ]],
         ]);
