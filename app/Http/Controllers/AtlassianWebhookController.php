@@ -13,7 +13,7 @@ class AtlassianWebhookController extends Controller
 {
     public function __invoke(Request $request, string $provider, Integration $integration): Response
     {
-        abort_unless(in_array($provider, ['jira', 'bitbucket'], true) && $integration->provider === $provider && $integration->is_active, 404);
+        abort_unless(config('features.atlassian_integrations') && in_array($provider, ['jira', 'bitbucket'], true) && $integration->provider === $provider && $integration->is_active, 404);
         $secret = (string) data_get($integration->settings(), 'webhook_secret');
         abort_if($secret === '', 403, 'Webhook is not configured.');
 

@@ -13,6 +13,10 @@ class WorkItemSuggestionService
     /** @return Collection<int, ExternalWorkItem> */
     public function forUser(User $user, Workspace $workspace): Collection
     {
+        if (! config('features.atlassian_integrations')) {
+            return new Collection;
+        }
+
         $externalIds = $user->integrationUsers()->pluck('external_user_id');
         $integrationUserIds = $user->integrationUsers()->pluck('id');
         $repositoryIds = $user->belongsToMany(BitbucketRepository::class, 'bitbucket_repository_user')->pluck('bitbucket_repositories.id');

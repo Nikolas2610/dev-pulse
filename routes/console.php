@@ -19,6 +19,8 @@ Schedule::call(fn () => app(AutomationAuditService::class)->heartbeat())
     ->withoutOverlapping();
 Schedule::job(new GenerateStandupRunsJob)->everyFiveMinutes()->withoutOverlapping();
 Schedule::job(new ProcessDueStandupRunsJob)->everyMinute()->withoutOverlapping();
-Schedule::call(function (): void {
-    Integration::query()->whereIn('provider', ['jira', 'bitbucket'])->where('is_active', true)->pluck('id')->each(fn (int $id) => SyncAtlassianIntegrationJob::dispatch($id));
-})->everyFifteenMinutes()->name('sync-atlassian-integrations')->withoutOverlapping();
+if (config('features.atlassian_integrations')) {
+    Schedule::call(function (): void {
+        Integration::query()->whereIn('provider', ['jira', 'bitbucket'])->where('is_active', true)->pluck('id')->each(fn (int $id) => SyncAtlassianIntegrationJob::dispatch($id));
+    })->everyFifteenMinutes()->name('sync-atlassian-integrations')->withoutOverlapping();
+}

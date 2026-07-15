@@ -201,11 +201,13 @@ class AtlassianIntegrationController extends Controller
 
     private function provider(string $provider): void
     {
-        abort_unless(in_array($provider, ['jira', 'bitbucket'], true), 404);
+        abort_unless(config('features.atlassian_integrations') && in_array($provider, ['jira', 'bitbucket'], true), 404);
     }
 
     private function authorizeIntegration(Request $request, string $provider, Integration $integration, CurrentOrganization $current): void
     {
+        $this->provider($provider);
+
         $organization = $current->fromRequest($request);
         abort_unless($organization && $integration->organization_id === $organization->id && $integration->provider === $provider, 404);
     }
