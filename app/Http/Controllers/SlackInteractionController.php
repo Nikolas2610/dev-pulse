@@ -60,6 +60,26 @@ class SlackInteractionController extends Controller
             abort_unless($integration instanceof Integration && $integration->provider === 'slack', 404);
             $this->verifySignature($request, $integration);
 
+            $integrationUser = IntegrationUser::query()
+                ->where('integration_id', $integration->id)
+                ->where('external_user_id', $payload['user']['id'] ?? null)
+                ->whereNotNull('user_id')
+                ->first();
+            $existingResponse = $integrationUser
+                ? $run->responses()->where('user_id', $integrationUser->user_id)->first()
+                : null;
+
+            if ($existingResponse && $existingResponse->status !== 'pending') {
+                $channel = (string) ($payload['channel']['id'] ?? '');
+                $messageTs = (string) ($payload['message']['ts'] ?? '');
+
+                $this->afterResponse(fn () => $existingResponse->status === 'skipped'
+                    ? $slack->updateStandupPromptAsSkipped($integration, $channel, $messageTs)
+                    : $slack->updateStandupPromptAsSubmitted($integration, $channel, $messageTs));
+
+                return response()->json();
+            }
+
             if ($actionId === 'skip_standup') {
                 $slack->openSkipStandupModal(
                     $integration,
@@ -69,7 +89,13 @@ class SlackInteractionController extends Controller
                     (string) ($payload['message']['ts'] ?? ''),
                 );
             } else {
-                $slack->openStandupModal($integration, (string) ($payload['trigger_id'] ?? ''), $run);
+                $slack->openStandupModal(
+                    $integration,
+                    (string) ($payload['trigger_id'] ?? ''),
+                    $run,
+                    (string) ($payload['channel']['id'] ?? ''),
+                    (string) ($payload['message']['ts'] ?? ''),
+                );
             }
 
             return response()->json();
@@ -194,6 +220,11 @@ class SlackInteractionController extends Controller
 
             $completion->completeIfAllResponsesSubmitted($run);
             $this->submissionFinalizer->handle($response);
+            $this->afterResponse(fn () => $slack->updateStandupPromptAsSubmitted(
+                $integration,
+                (string) ($metadata['channel_id'] ?? ''),
+                (string) ($metadata['message_ts'] ?? ''),
+            ));
 
             return response()->json(['response_action' => 'clear']);
         }
