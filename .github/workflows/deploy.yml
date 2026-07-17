@@ -47,7 +47,7 @@ jobs:
             || echo "Warning: Discord start notification failed."
 
       - name: Deploy DevPulse to VPS
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.5
         env:
           APP_DIR: ${{ secrets.VPS_APP_DIR }}
           APP_BRANCH: main
