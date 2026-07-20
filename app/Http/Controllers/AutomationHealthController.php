@@ -53,6 +53,9 @@ class AutomationHealthController extends Controller
             ->where(function ($query): void {
                 $query->where(fn ($query) => $query
                     ->where('status', 'scheduled')
+                    ->where(fn ($query) => $query
+                        ->whereNull('standup_schedule_id')
+                        ->orWhereHas('schedule', fn ($query) => $query->where('is_active', true)))
                     ->where('scheduled_open_at', '<', now()->subMinutes(5)))
                     ->orWhere(fn ($query) => $query
                         ->whereIn('status', ['active', 'completed'])
