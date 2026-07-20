@@ -4,9 +4,10 @@ import {
     CalendarClock,
     FileText,
     MoreHorizontal,
+    Pause,
     Pencil,
+    Play,
     Plus,
-    Power,
     Send,
     Trash2,
 } from 'lucide-react';
@@ -508,12 +509,10 @@ export default function SchedulesIndex({
                 <div className="dp-panel">
                     <div className="dp-panel-header">
                         <div>
-                            <h2 className="font-semibold">
-                                Active schedule map
-                            </h2>
+                            <h2 className="font-semibold">Schedule map</h2>
                             <p className="text-sm text-muted-foreground">
                                 {canManageSchedules
-                                    ? 'Use the row menu to edit, send, remind, summarize, or deactivate a schedule.'
+                                    ? 'Use the row menu to edit, send, remind, summarize, pause, or resume a schedule.'
                                     : 'Schedules are read-only for your role.'}
                             </p>
                         </div>
@@ -564,7 +563,7 @@ export default function SchedulesIndex({
                             onChange={(value) => setFilter('active', value)}
                             options={[
                                 { label: 'Active', value: '1' },
-                                { label: 'Inactive', value: '0' },
+                                { label: 'Paused', value: '0' },
                             ]}
                         />
                     </IndexDataControls>
@@ -629,7 +628,7 @@ export default function SchedulesIndex({
                                         >
                                             {schedule.is_active
                                                 ? 'Active'
-                                                : 'Inactive'}
+                                                : 'Paused'}
                                         </Badge>
                                     </div>
                                 </div>
@@ -721,10 +720,14 @@ export default function SchedulesIndex({
                                                         )
                                                     }
                                                 >
-                                                    <Power />
+                                                    {schedule.is_active ? (
+                                                        <Pause />
+                                                    ) : (
+                                                        <Play />
+                                                    )}
                                                     {schedule.is_active
-                                                        ? 'Deactivate'
-                                                        : 'Activate'}
+                                                        ? 'Pause schedule'
+                                                        : 'Resume schedule'}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     variant="destructive"

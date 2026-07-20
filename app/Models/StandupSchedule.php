@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -103,5 +104,11 @@ class StandupSchedule extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'standup_schedule_user')->withTimestamps();
+    }
+
+    /** @return HasMany<StandupRun, $this> */
+    public function runs(): HasMany
+    {
+        return $this->hasMany(StandupRun::class, 'standup_schedule_id');
     }
 }
