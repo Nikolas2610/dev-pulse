@@ -425,7 +425,7 @@ export default function SchedulesEdit({
                             }
                         />
                         <FormCheckbox
-                            label="Active schedule"
+                            label="Schedule is running"
                             checked={Boolean(data.is_active)}
                             onCheckedChange={(checked) =>
                                 setData('is_active', checked)
