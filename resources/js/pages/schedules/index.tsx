@@ -509,9 +509,7 @@ export default function SchedulesIndex({
                 <div className="dp-panel">
                     <div className="dp-panel-header">
                         <div>
-                            <h2 className="font-semibold">
-                                Schedule map
-                            </h2>
+                            <h2 className="font-semibold">Schedule map</h2>
                             <p className="text-sm text-muted-foreground">
                                 {canManageSchedules
                                     ? 'Use the row menu to edit, send, remind, summarize, pause, or resume a schedule.'
