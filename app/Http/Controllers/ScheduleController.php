@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -223,12 +224,18 @@ class ScheduleController extends Controller
             return $response;
         }
 
-        $schedule->update([
-            ...Arr::except($validated, 'participant_user_ids'),
-            'timezone' => TimezoneRules::normalize($validated['timezone']),
-        ]);
+        DB::transaction(function () use ($schedule, $validated): void {
+            $schedule->update([
+                ...Arr::except($validated, 'participant_user_ids'),
+                'timezone' => TimezoneRules::normalize($validated['timezone']),
+            ]);
 
-        $this->syncParticipants($schedule, $validated['participant_user_ids'] ?? []);
+            if (! $schedule->is_active) {
+                $this->cancelScheduledRuns($schedule);
+            }
+
+            $this->syncParticipants($schedule, $validated['participant_user_ids'] ?? []);
+        });
 
         return to_route('schedules.index');
     }
@@ -256,13 +263,19 @@ class ScheduleController extends Controller
             'is_active' => ['required', 'boolean'],
         ]);
 
-        $schedule->update([
-            'is_active' => (bool) $validated['is_active'],
-        ]);
+        $isActive = (bool) $validated['is_active'];
+
+        DB::transaction(function () use ($schedule, $isActive): void {
+            $schedule->update(['is_active' => $isActive]);
+
+            if (! $isActive) {
+                $this->cancelScheduledRuns($schedule);
+            }
+        });
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => $schedule->is_active ? __('Schedule activated.') : __('Schedule deactivated.'),
+            'message' => $schedule->is_active ? __('Schedule resumed.') : __('Schedule paused.'),
         ]);
 
         return to_route('schedules.index');
@@ -488,6 +501,13 @@ class ScheduleController extends Controller
             ->all();
 
         $schedule->participants()->sync($activeWorkspaceUserIds);
+    }
+
+    private function cancelScheduledRuns(StandupSchedule $schedule): void
+    {
+        $schedule->runs()
+            ->where('status', 'scheduled')
+            ->update(['status' => 'cancelled']);
     }
 
     /**
