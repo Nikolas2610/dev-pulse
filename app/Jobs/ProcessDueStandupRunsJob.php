@@ -24,6 +24,9 @@ class ProcessDueStandupRunsJob implements ShouldQueue
 
             StandupRun::query()
                 ->where('status', 'scheduled')
+                ->where(fn ($query) => $query
+                    ->whereNull('standup_schedule_id')
+                    ->orWhereHas('schedule', fn ($query) => $query->where('is_active', true)))
                 ->whereNotNull('scheduled_open_at')
                 ->where('scheduled_open_at', '<=', $now)
                 ->pluck('id')
