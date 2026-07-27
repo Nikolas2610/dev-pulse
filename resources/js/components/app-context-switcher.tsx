@@ -43,7 +43,10 @@ export function AppContextSwitcher() {
                             organization_id: Number(event.target.value),
                             workspace_id: null,
                         },
-                        { preserveScroll: true },
+                        {
+                            preserveScroll: false,
+                            preserveState: false,
+                        },
                     )
                 }
                 options={organizations.map((organization) => ({
@@ -67,7 +70,10 @@ export function AppContextSwitcher() {
                             organization_id: currentOrganization?.id,
                             workspace_id: Number(event.target.value),
                         },
-                        { preserveScroll: true },
+                        {
+                            preserveScroll: false,
+                            preserveState: false,
+                        },
                     )
                 }
                 options={

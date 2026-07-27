@@ -1871,6 +1871,10 @@ class StandupRuntimeTest extends TestCase
 
         app(StandupMessageService::class)->openRun($run);
 
+        $run->responses()
+            ->where('user_id', $selectedMember->id)
+            ->update(['status' => 'skipped', 'submitted_at' => now()]);
+
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk()
@@ -1881,13 +1885,16 @@ class StandupRuntimeTest extends TestCase
                 ->where('todayRun.workspace.id', $workspace->id)
                 ->where('stats.today.hasRun', true)
                 ->where('stats.today.submitted', 0)
+                ->where('stats.today.skipped', 1)
                 ->where('stats.today.expected', 1)
-                ->where('stats.today.pending', 1)
-                ->where('stats.today.completionRate', 0)
+                ->where('stats.today.pending', 0)
+                ->where('stats.today.completionRate', 100)
                 ->where('stats.week.runs', 1)
                 ->where('stats.week.submitted', 0)
+                ->where('stats.week.skipped', 1)
                 ->where('stats.week.expected', 1)
-                ->where('stats.week.pending', 1));
+                ->where('stats.week.pending', 0)
+                ->where('stats.week.completionRate', 100));
     }
 
     public function test_open_run_posts_prompt_to_discord_webhook(): void
