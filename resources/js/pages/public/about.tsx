@@ -1,6 +1,13 @@
 import { Head } from '@inertiajs/react';
 import { Eye, Focus, Radio, Users } from 'lucide-react';
 import { PublicAction, PublicLayout } from '@/components/public/public-layout';
+import {
+    MotionHero,
+    MotionHeroItem,
+    MotionReveal,
+    MotionStagger,
+    MotionStaggerItem,
+} from '@/components/public/public-motion';
 
 const principles = [
     {
@@ -33,8 +40,8 @@ export default function About() {
                 <section className="relative min-h-[calc(82dvh-68px)] overflow-hidden border-b border-white/8">
                     <div className="public-grid-bg absolute inset-0 opacity-35" />
                     <div className="public-orbit absolute right-[-8rem] bottom-[-12rem] size-[34rem] rounded-full bg-cyan-300/[0.07] blur-3xl" />
-                    <div className="relative mx-auto flex min-h-[calc(82dvh-68px)] max-w-[1400px] items-end px-5 py-20 md:px-8 lg:px-10 lg:py-24">
-                        <div className="public-enter max-w-5xl">
+                    <MotionHero className="relative mx-auto flex min-h-[calc(82dvh-68px)] max-w-[1400px] items-end px-5 py-20 md:px-8 lg:px-10 lg:py-24">
+                        <MotionHeroItem className="max-w-5xl">
                             <p className="mb-5 text-xs font-semibold tracking-[0.16em] text-cyan-300 uppercase">
                                 Why DevPulse
                             </p>
@@ -47,19 +54,19 @@ export default function About() {
                                 progress, spot friction, and decide what needs
                                 attention.
                             </p>
-                        </div>
-                    </div>
+                        </MotionHeroItem>
+                    </MotionHero>
                 </section>
 
                 <section className="mx-auto max-w-[1400px] px-5 py-24 md:px-8 md:py-32 lg:px-10">
                     <div className="grid gap-12 lg:grid-cols-[0.7fr_1.3fr] lg:gap-24">
-                        <div className="public-reveal">
+                        <MotionReveal>
                             <Users className="size-6 text-cyan-300" />
                             <h2 className="mt-7 max-w-[12ch] text-4xl leading-none font-semibold tracking-[-0.045em] md:text-5xl">
                                 Built around the way engineering work changes.
                             </h2>
-                        </div>
-                        <div className="public-reveal max-w-2xl space-y-6 text-lg leading-8 text-slate-300">
+                        </MotionReveal>
+                        <MotionReveal className="max-w-2xl space-y-6 text-lg leading-8 text-slate-300">
                             <p>
                                 Priorities shift. Reviews uncover new work. A
                                 small dependency becomes a blocker. The team
@@ -72,7 +79,7 @@ export default function About() {
                                 context, and summaries delivered back to the
                                 team.
                             </p>
-                        </div>
+                        </MotionReveal>
                     </div>
                 </section>
 
@@ -81,26 +88,28 @@ export default function About() {
                         <h2 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
                             Product principles
                         </h2>
-                        <div className="mt-12 grid gap-10 md:grid-cols-[1.2fr_0.8fr] lg:grid-cols-[1.2fr_0.8fr_1fr]">
+                        <MotionStagger className="mt-12 grid gap-10 md:grid-cols-[1.2fr_0.8fr] lg:grid-cols-[1.2fr_0.8fr_1fr]">
                             {principles.map(({ icon: Icon, title, body }) => (
-                                <article
+                                <MotionStaggerItem
                                     key={title}
-                                    className="public-reveal border-t border-white/10 pt-7"
+                                    className="border-t border-white/10 pt-7"
                                 >
-                                    <Icon className="size-5 text-cyan-300" />
-                                    <h3 className="mt-8 text-xl font-semibold tracking-[-0.025em]">
-                                        {title}
-                                    </h3>
-                                    <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">
-                                        {body}
-                                    </p>
-                                </article>
+                                    <article>
+                                        <Icon className="size-5 text-cyan-300" />
+                                        <h3 className="mt-8 text-xl font-semibold tracking-[-0.025em]">
+                                            {title}
+                                        </h3>
+                                        <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">
+                                            {body}
+                                        </p>
+                                    </article>
+                                </MotionStaggerItem>
                             ))}
-                        </div>
+                        </MotionStagger>
                     </div>
                 </section>
 
-                <section className="mx-auto flex max-w-[1400px] flex-col items-start gap-8 px-5 py-20 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-24">
+                <MotionReveal className="mx-auto flex max-w-[1400px] flex-col items-start gap-8 px-5 py-20 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-24">
                     <div>
                         <h2 className="max-w-[14ch] text-4xl leading-none font-semibold tracking-[-0.045em] md:text-5xl">
                             Give useful context a place to land.
@@ -111,7 +120,7 @@ export default function About() {
                         </p>
                     </div>
                     <PublicAction />
-                </section>
+                </MotionReveal>
             </main>
         </PublicLayout>
     );
