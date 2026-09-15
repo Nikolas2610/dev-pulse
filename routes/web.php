@@ -22,8 +22,14 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceSettingsController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::inertia('/', 'welcome')->name('home');
+Route::inertia('product', 'public/product')->name('product');
+Route::get('integrations', fn () => auth()->check()
+    ? redirect('/integrations/slack')
+    : Inertia::render('public/integrations'))->name('integrations.index');
+Route::inertia('about', 'public/about')->name('about');
 Route::post('slack/interactions', SlackInteractionController::class)->name('slack.interactions');
 Route::post('slack/events', [SlackInteractionController::class, 'events'])->name('slack.events');
 Route::post('webhooks/{provider}/{integration}', AtlassianWebhookController::class)->whereIn('provider', ['jira', 'bitbucket'])->name('atlassian.webhooks');
@@ -100,7 +106,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('workspaces/{workspace}', [WorkspaceController::class, 'destroy'])->name('workspaces.destroy');
     });
     Route::middleware('role-capability:manageIntegrations')->group(function () {
-        Route::redirect('integrations', '/integrations/slack')->name('integrations.index');
         Route::get('integrations/{provider}', [AtlassianIntegrationController::class, 'index'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.index');
         Route::get('integrations/{provider}/connect', [AtlassianIntegrationController::class, 'connect'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.connect');
         Route::get('integrations/{provider}/callback', [AtlassianIntegrationController::class, 'callback'])->whereIn('provider', ['jira', 'bitbucket'])->name('integrations.atlassian.callback');

@@ -10,7 +10,7 @@ The public site contains four Inertia pages:
 
 - `/` - homepage and primary registration path
 - `/product` - the standup workflow from prompt to summary
-- `/integrations` - Slack, Discord, Jira, and Bitbucket capabilities
+- `/integrations` - Slack, Discord, Jira, and Bitbucket capabilities for guests; signed-in users retain the existing redirect to `/integrations/slack`
 - `/about` - product principles and positioning
 
 Pricing, fabricated customer claims, invented company history, and documentation are outside this release.
@@ -70,4 +70,3 @@ Describe the product philosophy: fewer status meetings, clearer written context,
 - Feature tests verify authenticated visitors can load the public pages.
 - TypeScript, ESLint, formatting, PHP tests, and the Vite production build must pass.
 - Browser review covers desktop and mobile widths, navigation, both guest and signed-in CTA states where practical, and reduced-motion behavior.
-
