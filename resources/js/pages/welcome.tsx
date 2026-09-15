@@ -1,175 +1,159 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import AppLogoIcon from '@/components/app-logo-icon';
-import { dashboard, login } from '@/routes';
-import { register } from '@/routes';
+import { Head, Link } from '@inertiajs/react';
+import {
+    AlertTriangle,
+    ArrowRight,
+    CalendarClock,
+    GitPullRequest,
+    MessageSquareText,
+} from 'lucide-react';
+import { PublicAction, PublicLayout } from '@/components/public/public-layout';
+import { PulseVisual } from '@/components/public/pulse-visual';
+
+const workflow = [
+    {
+        icon: CalendarClock,
+        title: 'Prompt on schedule',
+        body: 'Open the right standup for each workspace and timezone.',
+    },
+    {
+        icon: MessageSquareText,
+        title: 'Collect focused updates',
+        body: 'Keep answers structured without another calendar event.',
+    },
+    {
+        icon: AlertTriangle,
+        title: 'Route blockers early',
+        body: 'Give managers the context to act before work stalls.',
+    },
+];
 
 export default function Welcome() {
-    const { auth, name = 'DevPulse' } = usePage().props;
-    const appName =
-        typeof name === 'string' && name !== 'Laravel' ? name : 'DevPulse';
-    const primaryHref = auth.user ? dashboard() : login();
-
     return (
-        <>
-            <Head title={appName} />
-            <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#07131f] text-white">
-                <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-8 sm:py-5">
-                    <Link
-                        href={primaryHref}
-                        className="flex min-w-0 items-center gap-2.5 sm:gap-3"
-                    >
-                        <AppLogoIcon className="size-9 shrink-0 sm:size-10" />
-                        <span className="truncate text-base font-semibold tracking-normal sm:text-lg">
-                            {appName}
-                        </span>
-                    </Link>
-
-                    <nav className="flex shrink-0 items-center gap-1.5 text-sm sm:gap-2">
-                        {auth.user ? (
-                            <Link
-                                href={dashboard()}
-                                className="rounded-md border border-white/15 px-3 py-2 font-medium text-white hover:border-cyan-300/70 sm:px-4"
-                            >
-                                Dashboard
-                            </Link>
-                        ) : (
-                            <>
-                                <Link
-                                    href={login()}
-                                    className="rounded-md border border-transparent px-3 py-2 font-medium text-white hover:border-white/15 sm:px-4"
-                                >
-                                    Log in
-                                </Link>
-                                <Link
-                                    href={register()}
-                                    className="rounded-md bg-white px-3 py-2 font-medium text-[#07131f] hover:bg-cyan-100 sm:px-4"
-                                >
-                                    Register
-                                </Link>
-                            </>
-                        )}
-                    </nav>
-                </header>
-
-                <main className="mx-auto grid w-full max-w-7xl flex-1 content-start items-center gap-8 px-4 py-10 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_520px] lg:content-center">
-                    <section>
-                        <div className="max-w-2xl">
-                            <p className="mb-4 text-xs font-semibold tracking-[0.16em] text-cyan-300 uppercase sm:mb-5 sm:text-sm sm:tracking-[0.18em]">
-                                Developer team rhythm
+        <PublicLayout current="home">
+            <Head title="Async standups for focused engineering teams">
+                <meta
+                    name="description"
+                    content="DevPulse schedules async standups, surfaces blockers, and delivers focused summaries to your team tools."
+                />
+            </Head>
+            <main>
+                <section className="relative isolate overflow-hidden">
+                    <div className="public-grid-bg absolute inset-0 -z-10 opacity-45" />
+                    <div className="public-orbit absolute top-12 right-[-12rem] -z-10 size-[34rem] rounded-full bg-cyan-300/[0.07] blur-3xl" />
+                    <div className="mx-auto grid min-h-[calc(100dvh-68px)] max-w-[1400px] items-center gap-12 px-5 py-16 md:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(520px,1.08fr)] lg:px-10 lg:py-20">
+                        <div className="public-enter max-w-[650px]">
+                            <p className="mb-5 text-xs font-semibold tracking-[0.16em] text-cyan-300 uppercase">
+                                Async standups, complete context
                             </p>
-                            <h1 className="text-3xl leading-tight font-semibold tracking-normal sm:text-5xl lg:text-6xl">
-                                Standups, schedules, and summaries in one pulse.
+                            <h1 className="max-w-[15ch] text-[clamp(2.8rem,6vw,5rem)] leading-[0.96] font-semibold tracking-[-0.06em]">
+                                Keep work moving. Skip status meetings.
                             </h1>
-                            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
-                                {appName} helps teams coordinate standups,
-                                schedules, workspaces, and Slack or Discord
-                                delivery from one focused workspace.
+                            <p className="mt-6 max-w-[540px] text-base leading-7 text-slate-300 md:text-lg">
+                                Schedule standups, catch blockers, and send
+                                clear summaries where your team already works.
                             </p>
-                            <div className="mt-7 grid gap-3 min-[420px]:flex min-[420px]:flex-wrap sm:mt-8">
+                            <div className="mt-8 flex flex-wrap items-center gap-4">
+                                <PublicAction />
                                 <Link
-                                    href={primaryHref}
-                                    className="rounded-md bg-cyan-300 px-5 py-3 text-center text-sm font-semibold text-[#07131f] hover:bg-cyan-200"
+                                    href="/product"
+                                    className="focus-public inline-flex items-center gap-2 rounded-lg px-2 py-3 text-sm font-semibold text-slate-200 hover:text-white"
                                 >
-                                    {auth.user
-                                        ? 'Open dashboard'
-                                        : 'Get started'}
+                                    See how it works
+                                    <ArrowRight className="size-4" />
                                 </Link>
-                                {!auth.user && (
-                                    <Link
-                                        href={login()}
-                                        className="rounded-md border border-white/15 px-5 py-3 text-center text-sm font-semibold hover:border-cyan-300/70"
-                                    >
-                                        Sign in
-                                    </Link>
-                                )}
-                            </div>
-                            <div className="mt-9 grid max-w-xl grid-cols-3 gap-2 text-sm text-slate-300 sm:mt-10 sm:gap-3">
-                                <div className="border-l border-cyan-300/60 pl-3 sm:pl-4">
-                                    <p className="text-xl font-semibold text-white sm:text-2xl">
-                                        09:00
-                                    </p>
-                                    <p>Prompt window</p>
-                                </div>
-                                <div className="border-l border-lime-300/60 pl-3 sm:pl-4">
-                                    <p className="text-xl font-semibold text-white sm:text-2xl">
-                                        3
-                                    </p>
-                                    <p>Workspaces</p>
-                                </div>
-                                <div className="border-l border-white/20 pl-3 sm:pl-4">
-                                    <p className="text-xl font-semibold text-white sm:text-2xl">
-                                        Live
-                                    </p>
-                                    <p>Team pulse</p>
-                                </div>
                             </div>
                         </div>
-                    </section>
+                        <div className="public-enter public-enter-delay">
+                            <PulseVisual />
+                        </div>
+                    </div>
+                </section>
 
-                    <section className="hidden rounded-lg border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/30 lg:block">
-                        <div className="rounded-md border border-white/10 bg-[#0d1c2a] p-5">
-                            <div className="mb-5 flex items-center justify-between">
+                <section className="border-y border-white/8 bg-white/[0.018]">
+                    <div className="mx-auto grid max-w-[1400px] px-5 md:grid-cols-3 md:px-8 lg:px-10">
+                        {workflow.map(({ icon: Icon, title, body }) => (
+                            <article
+                                key={title}
+                                className="public-reveal border-b border-white/8 py-8 last:border-b-0 md:border-r md:border-b-0 md:px-8 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
+                            >
+                                <Icon
+                                    className="size-5 text-cyan-300"
+                                    aria-hidden="true"
+                                />
+                                <h2 className="mt-5 text-lg font-semibold tracking-[-0.02em]">
+                                    {title}
+                                </h2>
+                                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
+                                    {body}
+                                </p>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="mx-auto max-w-[1400px] px-5 py-24 md:px-8 md:py-32 lg:px-10">
+                    <div className="grid items-start gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
+                        <div className="public-reveal lg:sticky lg:top-32">
+                            <h2 className="max-w-[11ch] text-4xl leading-[1.02] font-semibold tracking-[-0.045em] md:text-5xl">
+                                The signal arrives before the meeting would.
+                            </h2>
+                            <p className="mt-5 max-w-md leading-7 text-slate-400">
+                                DevPulse turns individual updates into a shared
+                                operating picture for the whole team.
+                            </p>
+                        </div>
+                        <div className="grid gap-4">
+                            <article className="public-reveal rounded-xl border border-white/10 bg-[#0c1b29] p-6 md:p-8">
+                                <span className="flex size-11 items-center justify-center rounded-lg bg-amber-300/10 text-amber-200">
+                                    <AlertTriangle className="size-5" />
+                                </span>
+                                <h3 className="mt-8 max-w-lg text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
+                                    Blockers become work, not meeting notes.
+                                </h3>
+                                <p className="mt-4 max-w-xl leading-7 text-slate-400">
+                                    Flag the issue, preserve the surrounding
+                                    update, and give the right manager a clear
+                                    next action.
+                                </p>
+                            </article>
+                            <article className="public-reveal grid gap-8 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.055] p-6 md:grid-cols-[1fr_auto] md:items-end md:p-8">
                                 <div>
-                                    <p className="text-sm font-medium text-slate-400">
-                                        Today
-                                    </p>
-                                    <p className="text-xl font-semibold">
-                                        Engineering standup
+                                    <GitPullRequest className="size-5 text-cyan-300" />
+                                    <h3 className="mt-8 max-w-lg text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
+                                        Work context stays attached.
+                                    </h3>
+                                    <p className="mt-4 max-w-xl leading-7 text-slate-300">
+                                        Bring Jira issues and Bitbucket review
+                                        activity into the same daily view.
                                     </p>
                                 </div>
-                                <span className="rounded-full bg-lime-300 px-3 py-1 text-xs font-semibold text-[#07131f]">
-                                    Open
-                                </span>
-                            </div>
-                            <div className="space-y-3">
-                                {[
-                                    [
-                                        'Maya Chen',
-                                        'Shipped Slack sync retry handling',
-                                        'Done',
-                                    ],
-                                    [
-                                        'Theo Martin',
-                                        'Reviewing schedule visibility rules',
-                                        'Now',
-                                    ],
-                                    [
-                                        'Ari Novak',
-                                        'Blocked on Discord webhook scope',
-                                        'Flagged',
-                                    ],
-                                ].map(([person, update, status]) => (
-                                    <div
-                                        key={person}
-                                        className="grid gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-[1fr_auto]"
-                                    >
-                                        <div>
-                                            <p className="font-semibold">
-                                                {person}
-                                            </p>
-                                            <p className="mt-1 text-sm text-slate-300">
-                                                {update}
-                                            </p>
-                                        </div>
-                                        <span className="self-start rounded-full border border-cyan-300/30 px-3 py-1 text-xs text-cyan-200">
-                                            {status}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-5 rounded-md bg-cyan-300 p-4 text-[#07131f]">
-                                <p className="text-sm font-semibold">
-                                    Summary ready for #engineering
-                                </p>
-                                <p className="mt-1 text-sm">
-                                    2 shipped updates, 1 active review, 1
-                                    blocker.
-                                </p>
-                            </div>
+                                <Link
+                                    href="/integrations"
+                                    className="focus-public inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-cyan-200 hover:text-cyan-100"
+                                >
+                                    Explore integrations
+                                    <ArrowRight className="size-4" />
+                                </Link>
+                            </article>
                         </div>
-                    </section>
-                </main>
-            </div>
-        </>
+                    </div>
+                </section>
+
+                <section className="border-t border-white/8">
+                    <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-5 py-20 md:px-8 lg:grid-cols-[1fr_auto] lg:px-10 lg:py-24">
+                        <div>
+                            <h2 className="max-w-[14ch] text-4xl leading-none font-semibold tracking-[-0.045em] md:text-5xl">
+                                Replace status chasing with a reliable rhythm.
+                            </h2>
+                            <p className="mt-5 max-w-xl leading-7 text-slate-400">
+                                Set up the workspace, connect the team, and run
+                                the first standup on your schedule.
+                            </p>
+                        </div>
+                        <PublicAction className="lg:mr-2" />
+                    </div>
+                </section>
+            </main>
+        </PublicLayout>
     );
 }

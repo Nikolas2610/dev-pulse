@@ -25,11 +25,13 @@
 ### Task 1: Register and verify the public routes
 
 **Files:**
+
 - Create: `tests/Feature/PublicSiteTest.php`
 - Modify: `routes/web.php`
 
 **Interfaces:**
-- Produces named routes `home`, `product`, `integrations.public`, and `about`.
+
+- Produces named routes `home`, `product`, `integrations.index`, and `about`; the integrations route renders the public page for guests and preserves the existing Slack redirect for authenticated users.
 
 - [ ] **Step 1: Write the failing route tests**
 
@@ -54,6 +56,7 @@ Expected: all public route tests pass.
 ### Task 2: Build the shared public shell and homepage
 
 **Files:**
+
 - Create: `resources/js/components/public/public-layout.tsx`
 - Create: `resources/js/components/public/public-logo.tsx`
 - Create: `resources/js/components/public/pulse-visual.tsx`
@@ -62,6 +65,7 @@ Expected: all public route tests pass.
 - Modify: `resources/css/app.css`
 
 **Interfaces:**
+
 - `PublicLayout({ children, current, authUser })` renders shared public navigation and footer.
 - `PulseVisual()` renders a product-derived prompt-to-summary illustration using semantic HTML and CSS.
 
@@ -92,11 +96,13 @@ Expected: both commands exit 0.
 ### Task 3: Build Product, Integrations, and About pages
 
 **Files:**
+
 - Create: `resources/js/pages/public/product.tsx`
 - Create: `resources/js/pages/public/integrations.tsx`
 - Create: `resources/js/pages/public/about.tsx`
 
 **Interfaces:**
+
 - Each page consumes `PublicLayout` and the shared authentication page prop.
 
 - [ ] **Step 1: Implement Product**
@@ -124,9 +130,11 @@ Expected: all commands exit 0.
 ### Task 4: Browser review and final verification
 
 **Files:**
+
 - Modify only files with issues found during review.
 
 **Interfaces:**
+
 - No new public interfaces.
 
 - [ ] **Step 1: Run formatting and lint checks**
@@ -150,4 +158,3 @@ Run: `npm.cmd run build`
 Run: `php artisan test`
 
 Expected: all commands exit 0.
-
