@@ -7,6 +7,13 @@ import {
     MessageSquareText,
 } from 'lucide-react';
 import { PublicAction, PublicLayout } from '@/components/public/public-layout';
+import {
+    MotionHero,
+    MotionHeroItem,
+    MotionReveal,
+    MotionStagger,
+    MotionStaggerItem,
+} from '@/components/public/public-motion';
 import { PulseVisual } from '@/components/public/pulse-visual';
 
 const workflow = [
@@ -40,8 +47,8 @@ export default function Welcome() {
                 <section className="relative isolate overflow-hidden">
                     <div className="public-grid-bg absolute inset-0 -z-10 opacity-45" />
                     <div className="public-orbit absolute top-12 right-[-12rem] -z-10 size-[34rem] rounded-full bg-cyan-300/[0.07] blur-3xl" />
-                    <div className="mx-auto grid min-h-[calc(100dvh-68px)] max-w-[1400px] items-center gap-12 px-5 py-16 md:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(520px,1.08fr)] lg:px-10 lg:py-20">
-                        <div className="public-enter max-w-[650px]">
+                    <MotionHero className="mx-auto grid min-h-[calc(100dvh-68px)] max-w-[1400px] items-center gap-12 px-5 py-16 md:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(520px,1.08fr)] lg:px-10 lg:py-20">
+                        <MotionHeroItem className="max-w-[650px]">
                             <p className="mb-5 text-xs font-semibold tracking-[0.16em] text-cyan-300 uppercase">
                                 Async standups, complete context
                             </p>
@@ -62,38 +69,40 @@ export default function Welcome() {
                                     <ArrowRight className="size-4" />
                                 </Link>
                             </div>
-                        </div>
-                        <div className="public-enter public-enter-delay">
+                        </MotionHeroItem>
+                        <MotionHeroItem>
                             <PulseVisual />
-                        </div>
-                    </div>
+                        </MotionHeroItem>
+                    </MotionHero>
                 </section>
 
                 <section className="border-y border-white/8 bg-white/[0.018]">
-                    <div className="mx-auto grid max-w-[1400px] px-5 md:grid-cols-3 md:px-8 lg:px-10">
+                    <MotionStagger className="mx-auto grid max-w-[1400px] px-5 md:grid-cols-3 md:px-8 lg:px-10">
                         {workflow.map(({ icon: Icon, title, body }) => (
-                            <article
+                            <MotionStaggerItem
                                 key={title}
-                                className="public-reveal border-b border-white/8 py-8 last:border-b-0 md:border-r md:border-b-0 md:px-8 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
+                                className="border-b border-white/8 py-8 last:border-b-0 md:border-r md:border-b-0 md:px-8 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
                             >
-                                <Icon
-                                    className="size-5 text-cyan-300"
-                                    aria-hidden="true"
-                                />
-                                <h2 className="mt-5 text-lg font-semibold tracking-[-0.02em]">
-                                    {title}
-                                </h2>
-                                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
-                                    {body}
-                                </p>
-                            </article>
+                                <article>
+                                    <Icon
+                                        className="size-5 text-cyan-300"
+                                        aria-hidden="true"
+                                    />
+                                    <h2 className="mt-5 text-lg font-semibold tracking-[-0.02em]">
+                                        {title}
+                                    </h2>
+                                    <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
+                                        {body}
+                                    </p>
+                                </article>
+                            </MotionStaggerItem>
                         ))}
-                    </div>
+                    </MotionStagger>
                 </section>
 
                 <section className="mx-auto max-w-[1400px] px-5 py-24 md:px-8 md:py-32 lg:px-10">
                     <div className="grid items-start gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
-                        <div className="public-reveal lg:sticky lg:top-32">
+                        <MotionReveal className="lg:sticky lg:top-32">
                             <h2 className="max-w-[11ch] text-4xl leading-[1.02] font-semibold tracking-[-0.045em] md:text-5xl">
                                 The signal arrives before the meeting would.
                             </h2>
@@ -101,46 +110,51 @@ export default function Welcome() {
                                 DevPulse turns individual updates into a shared
                                 operating picture for the whole team.
                             </p>
-                        </div>
+                        </MotionReveal>
                         <div className="grid gap-4">
-                            <article className="public-reveal rounded-xl border border-white/10 bg-[#0c1b29] p-6 md:p-8">
-                                <span className="flex size-11 items-center justify-center rounded-lg bg-amber-300/10 text-amber-200">
-                                    <AlertTriangle className="size-5" />
-                                </span>
-                                <h3 className="mt-8 max-w-lg text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
-                                    Blockers become work, not meeting notes.
-                                </h3>
-                                <p className="mt-4 max-w-xl leading-7 text-slate-400">
-                                    Flag the issue, preserve the surrounding
-                                    update, and give the right manager a clear
-                                    next action.
-                                </p>
-                            </article>
-                            <article className="public-reveal grid gap-8 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.055] p-6 md:grid-cols-[1fr_auto] md:items-end md:p-8">
-                                <div>
-                                    <GitPullRequest className="size-5 text-cyan-300" />
+                            <MotionReveal>
+                                <article className="rounded-xl border border-white/10 bg-[#0c1b29] p-6 md:p-8">
+                                    <span className="flex size-11 items-center justify-center rounded-lg bg-amber-300/10 text-amber-200">
+                                        <AlertTriangle className="size-5" />
+                                    </span>
                                     <h3 className="mt-8 max-w-lg text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
-                                        Work context stays attached.
+                                        Blockers become work, not meeting notes.
                                     </h3>
-                                    <p className="mt-4 max-w-xl leading-7 text-slate-300">
-                                        Bring Jira issues and Bitbucket review
-                                        activity into the same daily view.
+                                    <p className="mt-4 max-w-xl leading-7 text-slate-400">
+                                        Flag the issue, preserve the surrounding
+                                        update, and give the right manager a
+                                        clear next action.
                                     </p>
-                                </div>
-                                <Link
-                                    href="/integrations"
-                                    className="focus-public inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-cyan-200 hover:text-cyan-100"
-                                >
-                                    Explore integrations
-                                    <ArrowRight className="size-4" />
-                                </Link>
-                            </article>
+                                </article>
+                            </MotionReveal>
+                            <MotionReveal>
+                                <article className="grid gap-8 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.055] p-6 md:grid-cols-[1fr_auto] md:items-end md:p-8">
+                                    <div>
+                                        <GitPullRequest className="size-5 text-cyan-300" />
+                                        <h3 className="mt-8 max-w-lg text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
+                                            Work context stays attached.
+                                        </h3>
+                                        <p className="mt-4 max-w-xl leading-7 text-slate-300">
+                                            Bring Jira issues and Bitbucket
+                                            review activity into the same daily
+                                            view.
+                                        </p>
+                                    </div>
+                                    <Link
+                                        href="/integrations"
+                                        className="focus-public inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-cyan-200 hover:text-cyan-100"
+                                    >
+                                        Explore integrations
+                                        <ArrowRight className="size-4" />
+                                    </Link>
+                                </article>
+                            </MotionReveal>
                         </div>
                     </div>
                 </section>
 
                 <section className="border-t border-white/8">
-                    <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-5 py-20 md:px-8 lg:grid-cols-[1fr_auto] lg:px-10 lg:py-24">
+                    <MotionReveal className="mx-auto grid max-w-[1400px] items-center gap-10 px-5 py-20 md:px-8 lg:grid-cols-[1fr_auto] lg:px-10 lg:py-24">
                         <div>
                             <h2 className="max-w-[14ch] text-4xl leading-none font-semibold tracking-[-0.045em] md:text-5xl">
                                 Replace status chasing with a reliable rhythm.
@@ -151,7 +165,7 @@ export default function Welcome() {
                             </p>
                         </div>
                         <PublicAction className="lg:mr-2" />
-                    </div>
+                    </MotionReveal>
                 </section>
             </main>
         </PublicLayout>
