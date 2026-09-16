@@ -112,13 +112,14 @@ class DashboardController extends Controller
 
     /**
      * @param  Collection<int, int>  $runIds
-     * @return array{submitted: int, expected: int, pending: int, blockers: int, completionRate: int}
+     * @return array{submitted: int, skipped: int, expected: int, pending: int, blockers: int, completionRate: int}
      */
     private function participationStats(Collection $runIds): array
     {
         if ($runIds->isEmpty()) {
             return [
                 'submitted' => 0,
+                'skipped' => 0,
                 'expected' => 0,
                 'pending' => 0,
                 'blockers' => 0,
@@ -143,6 +144,7 @@ class DashboardController extends Controller
 
         return [
             'submitted' => $submitted,
+            'skipped' => $skipped,
             'expected' => $expected,
             'pending' => $pending,
             'blockers' => $blockers,

@@ -695,6 +695,12 @@ class DevPulseFoundationTest extends TestCase
 
         $this->assertSame($secondOrganization->id, $user->current_organization_id);
         $this->assertSame($secondWorkspace->id, $user->current_workspace_id);
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('currentOrganization.id', $secondOrganization->id)
+                ->where('currentWorkspace.id', $secondWorkspace->id));
 
         $this->actingAs($user)->patch(route('context.update'), [
             'organization_id' => $firstOrganization->id,
@@ -705,6 +711,12 @@ class DevPulseFoundationTest extends TestCase
 
         $this->assertSame($firstOrganization->id, $user->current_organization_id);
         $this->assertSame($firstWorkspace->id, $user->current_workspace_id);
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('currentOrganization.id', $firstOrganization->id)
+                ->where('currentWorkspace.id', $firstWorkspace->id));
     }
 
     public function test_user_cannot_switch_to_workspace_outside_selected_organization(): void
