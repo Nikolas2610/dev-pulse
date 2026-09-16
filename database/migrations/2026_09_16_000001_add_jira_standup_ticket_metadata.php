@@ -9,25 +9,31 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('standup_questions', function (Blueprint $table) {
+        Schema::whenTableDoesntHaveColumn('standup_questions', 'work_item_relation', function (Blueprint $table) {
             $table->string('work_item_relation')->nullable()->after('question_key');
         });
 
-        Schema::table('jira_projects', function (Blueprint $table) {
+        Schema::whenTableDoesntHaveColumn('jira_projects', 'statuses_json', function (Blueprint $table) {
             $table->json('statuses_json')->nullable()->after('avatar_url');
         });
 
-        Schema::table('workspace_jira_project', function (Blueprint $table) {
+        Schema::whenTableDoesntHaveColumn('workspace_jira_project', 'included_status_ids', function (Blueprint $table) {
             $table->json('included_status_ids')->nullable()->after('jira_project_id');
         });
 
-        Schema::table('external_work_items', function (Blueprint $table) {
+        Schema::whenTableDoesntHaveColumn('external_work_items', 'external_status_id', function (Blueprint $table) {
             $table->string('external_status_id')->nullable()->after('status');
         });
 
-        Schema::table('standup_response_items', function (Blueprint $table) {
+        Schema::whenTableHasIndex('standup_response_items', 'standup_response_work_item_unique', function (Blueprint $table) {
             $table->dropUnique('standup_response_work_item_unique');
+        });
+
+        Schema::whenTableDoesntHaveColumn('standup_response_items', 'standup_question_id', function (Blueprint $table) {
             $table->foreignId('standup_question_id')->nullable()->after('standup_response_id')->constrained()->nullOnDelete();
+        });
+
+        Schema::whenTableDoesntHaveIndex('standup_response_items', 'standup_response_work_item_relation_unique', function (Blueprint $table) {
             $table->unique(
                 ['standup_response_id', 'external_work_item_id', 'relation'],
                 'standup_response_work_item_relation_unique',
