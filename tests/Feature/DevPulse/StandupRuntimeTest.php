@@ -28,6 +28,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class StandupRuntimeTest extends TestCase
@@ -707,17 +708,18 @@ class StandupRuntimeTest extends TestCase
         Notification::assertSentTo($user, StandupPromptNotification::class);
     }
 
-    public function test_local_manual_send_creates_a_new_run_each_time_for_testing(): void
+    #[DataProvider('deployedEnvironments')]
+    public function test_manual_send_creates_a_new_run_each_time_for_testing_in_deployed_environments(string $environment): void
     {
         Notification::fake();
-        config(['app.env' => 'local']);
+        config(['app.env' => $environment]);
 
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
         $schedule = StandupSchedule::create([
             'organization_id' => $organization->id,
             'workspace_id' => $workspace->id,
             'standup_template_id' => $template->id,
-            'name' => 'Local Manual Daily Focus',
+            'name' => 'Manual Daily Focus',
             'timezone' => 'Asia/Nicosia',
             'time_of_day' => '08:30:00',
             'days_of_week' => [1, 2, 3, 4, 5],
@@ -745,6 +747,17 @@ class StandupRuntimeTest extends TestCase
             ->where('status', 'pending')
             ->count());
         Notification::assertCount(2);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function deployedEnvironments(): array
+    {
+        return [
+            'production' => ['production'],
+            'staging' => ['staging'],
+        ];
     }
 
     public function test_slack_dm_delivery_sends_only_to_mapped_pending_users(): void
