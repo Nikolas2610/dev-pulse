@@ -286,9 +286,9 @@ export default function Dashboard({
                         {engineeringWork.items.length > 0 && (
                             <Card className="mt-4">
                                 <CardHeader>
-                                    <CardTitle>Needs attention</CardTitle>
+                                    <CardTitle>Active blockers</CardTitle>
                                     <CardDescription>
-                                        Recently updated and blocked work across
+                                        Work explicitly marked as blocked in
                                         this workspace.
                                     </CardDescription>
                                 </CardHeader>
@@ -388,39 +388,45 @@ export default function Dashboard({
                                                                 </div>
                                                             ),
                                                         )}
-                                                        {response.items?.map(
-                                                            (item: any) => (
-                                                                <div
-                                                                    key={
-                                                                        item.id
-                                                                    }
-                                                                >
-                                                                    <div className="text-xs font-semibold text-muted-foreground">
-                                                                        {String(
-                                                                            item.relation,
-                                                                        ).replaceAll(
-                                                                            '_',
-                                                                            ' ',
-                                                                        )}
-                                                                    </div>
-                                                                    <a
-                                                                        href={
-                                                                            item.url_snapshot
+                                                        {response.items
+                                                            ?.filter(
+                                                                (item: any) =>
+                                                                    item.relation ===
+                                                                    'blocker',
+                                                            )
+                                                            .map(
+                                                                (item: any) => (
+                                                                    <div
+                                                                        key={
+                                                                            item.id
                                                                         }
-                                                                        target="_blank"
-                                                                        rel="noreferrer"
-                                                                        className="text-sm font-medium hover:underline"
                                                                     >
-                                                                        {
-                                                                            item.external_key
-                                                                        }{' '}
-                                                                        {
-                                                                            item.title_snapshot
-                                                                        }
-                                                                    </a>
-                                                                </div>
-                                                            ),
-                                                        )}
+                                                                        <div className="text-xs font-semibold text-muted-foreground">
+                                                                            {String(
+                                                                                item.relation,
+                                                                            ).replaceAll(
+                                                                                '_',
+                                                                                ' ',
+                                                                            )}
+                                                                        </div>
+                                                                        <a
+                                                                            href={
+                                                                                item.url_snapshot
+                                                                            }
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="text-sm font-medium hover:underline"
+                                                                        >
+                                                                            {
+                                                                                item.external_key
+                                                                            }{' '}
+                                                                            {
+                                                                                item.title_snapshot
+                                                                            }
+                                                                        </a>
+                                                                    </div>
+                                                                ),
+                                                            )}
                                                     </div>
                                                 </div>
                                             ),
