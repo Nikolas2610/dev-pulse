@@ -146,11 +146,13 @@ class AtlassianIntegrationController extends Controller
 
             foreach ($ids as $id) {
                 $project = $projects->get($id);
+                if (! $project instanceof JiraProject) {
+                    continue;
+                }
                 $selected = data_get($validated, 'status_filters.'.$id);
                 $selected = is_array($selected) ? array_values(array_unique(array_map('strval', $selected))) : null;
                 if ($selected !== null) {
-                    $allowed = collect($project?->statuses_json ?? [])->pluck('id')->map(fn ($statusId) => (string) $statusId);
-                    if (collect($selected)->diff($allowed)->isNotEmpty()) {
+                    if (array_diff($selected, $project->statusIds()) !== []) {
                         throw ValidationException::withMessages([
                             "status_filters.{$id}" => __('One or more selected Jira statuses are invalid.'),
                         ]);

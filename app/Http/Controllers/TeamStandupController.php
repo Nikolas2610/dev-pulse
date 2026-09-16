@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\StandupAnswer;
 use App\Models\StandupResponse;
+use App\Models\StandupResponseItem;
 use App\Services\CurrentOrganization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -72,32 +74,14 @@ class TeamStandupController extends Controller
                     'template' => $response->run->template?->name,
                 ],
                 'answers' => $response->answers
-                    ->sortBy(fn ($answer) => $answer->question->sort_order ?? 999)
-                    ->map(fn ($answer) => [
+                    ->sortBy(fn (StandupAnswer $answer) => $answer->question->sort_order ?? 999)
+                    ->map(fn (StandupAnswer $answer): array => [
                         'key' => $answer->question?->question_key,
                         'question' => $answer->question?->question_text,
                         'answer' => $answer->answer_text,
-                        'items' => $response->items
-                            ->where('standup_question_id', $answer->standup_question_id)
-                            ->map(fn ($item) => [
-                                'id' => $item->id,
-                                'external_key' => $item->external_key,
-                                'title' => $item->title_snapshot,
-                                'status' => $item->status_snapshot,
-                                'url' => $item->url_snapshot,
-                                'relation' => $item->relation,
-                            ])->values()->all(),
+                        'items' => $this->responseItems($response, $answer->standup_question_id),
                     ])->values()->all(),
-                'linkedWork' => $response->items
-                    ->whereNull('standup_question_id')
-                    ->map(fn ($item) => [
-                        'id' => $item->id,
-                        'external_key' => $item->external_key,
-                        'title' => $item->title_snapshot,
-                        'status' => $item->status_snapshot,
-                        'url' => $item->url_snapshot,
-                        'relation' => $item->relation,
-                    ])->values()->all(),
+                'linkedWork' => $this->responseItems($response, null),
             ]);
 
         $members = $workspace
@@ -117,5 +101,36 @@ class TeamStandupController extends Controller
             ],
             'workspace' => $workspace?->name,
         ]);
+    }
+
+    /**
+     * @return array<int, array{id: int, external_key: string|null, title: string, status: string, url: string, relation: string}>
+     */
+    private function responseItems(StandupResponse $response, ?int $questionId): array
+    {
+        $items = [];
+
+        foreach ($response->items as $item) {
+            if ($item->standup_question_id !== $questionId) {
+                continue;
+            }
+
+            $items[] = $this->serializeResponseItem($item);
+        }
+
+        return $items;
+    }
+
+    /** @return array{id: int, external_key: string|null, title: string, status: string, url: string, relation: string} */
+    private function serializeResponseItem(StandupResponseItem $item): array
+    {
+        return [
+            'id' => $item->id,
+            'external_key' => $item->external_key,
+            'title' => $item->title_snapshot,
+            'status' => $item->status_snapshot,
+            'url' => $item->url_snapshot,
+            'relation' => $item->relation,
+        ];
     }
 }

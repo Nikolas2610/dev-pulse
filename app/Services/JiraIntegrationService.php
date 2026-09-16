@@ -7,6 +7,7 @@ use App\Models\Integration;
 use App\Models\IntegrationUser;
 use App\Models\JiraProject;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -63,7 +64,10 @@ class JiraIntegrationService
         $workspaces = $project->workspaces()->get(['workspaces.id']);
         foreach ($workspaces as $workspace) {
             $workspaceId = $workspace->id;
-            $includedStatusIds = $this->statusIdsFromPivot($workspace->pivot?->included_status_ids);
+            $pivot = $workspace->getRelationValue('pivot');
+            $includedStatusIds = $this->statusIdsFromPivot(
+                $pivot instanceof Pivot ? $pivot->getAttribute('included_status_ids') : null,
+            );
             $seen = [];
             $startAt = 0;
             do {

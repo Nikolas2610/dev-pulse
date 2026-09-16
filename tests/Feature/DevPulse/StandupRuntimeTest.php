@@ -4,10 +4,10 @@ namespace Tests\Feature\DevPulse;
 
 use App\Jobs\GenerateStandupRunsJob;
 use App\Jobs\PostStandupSummaryJob;
+use App\Models\ExternalWorkItem;
 use App\Models\Integration;
 use App\Models\IntegrationChannel;
 use App\Models\IntegrationUser;
-use App\Models\ExternalWorkItem;
 use App\Models\JiraProject;
 use App\Models\Organization;
 use App\Models\StandupQuestion;

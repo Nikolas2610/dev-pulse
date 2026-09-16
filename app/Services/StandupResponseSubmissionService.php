@@ -54,7 +54,7 @@ class StandupResponseSubmissionService
         $selected = [];
         foreach ($workItemsByQuestion as $questionId => $itemIds) {
             $question = $visibleById->get((int) $questionId);
-            if (! $question || blank($question->work_item_relation) || ! is_array($itemIds)) {
+            if (! $question || blank($question->work_item_relation)) {
                 throw ValidationException::withMessages([
                     "work_items.{$questionId}" => __('This question cannot accept Jira tickets.'),
                 ]);
