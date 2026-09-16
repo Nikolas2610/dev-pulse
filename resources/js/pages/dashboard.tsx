@@ -21,6 +21,7 @@ import { dashboard } from '@/routes';
 type PeriodStats = {
     label: string;
     submitted: number;
+    skipped: number;
     expected: number;
     pending: number;
     blockers: number;
@@ -192,6 +193,11 @@ export default function Dashboard({
                                     detail: 'team members',
                                 },
                                 {
+                                    label: 'Skipped',
+                                    value: String(stats.today.skipped),
+                                    detail: 'team members',
+                                },
+                                {
                                     label: 'Blockers',
                                     value: String(stats.today.blockers),
                                     detail: 'reported',
@@ -215,6 +221,11 @@ export default function Dashboard({
                                     label: 'Runs',
                                     value: String(stats.week.runs),
                                     detail: `${stats.week.completedRuns} completed`,
+                                },
+                                {
+                                    label: 'Skipped',
+                                    value: String(stats.week.skipped),
+                                    detail: 'responses',
                                 },
                                 {
                                     label: 'Blockers',
@@ -577,7 +588,7 @@ function PeriodCard({
                 </div>
             </CardContent>
 
-            <CardFooter className="grid grid-cols-3 border-t px-5 pt-5">
+            <CardFooter className="grid grid-cols-4 border-t px-5 pt-5">
                 {items.map((item) => (
                     <div
                         key={item.label}
