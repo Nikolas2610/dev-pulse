@@ -106,7 +106,12 @@ class DashboardController extends Controller
             'pendingReviews' => (clone $base)->where('type', 'pull_request')->whereJsonLength('reviewer_external_ids', '>', 0)->count(),
             'stalePullRequests' => (clone $base)->where('type', 'pull_request')->where('provider_updated_at', '<=', now()->subDays($staleDays))->count(),
             'lastSyncedAt' => (clone $base)->max('last_synced_at'),
-            'items' => (clone $base)->with(['assignee.user:id,name', 'author.user:id,name'])->orderByDesc('is_blocked')->orderByDesc('provider_updated_at')->limit(12)->get(),
+            'items' => (clone $base)
+                ->where('is_blocked', true)
+                ->with(['assignee.user:id,name', 'author.user:id,name'])
+                ->orderByDesc('provider_updated_at')
+                ->limit(12)
+                ->get(),
         ];
     }
 
