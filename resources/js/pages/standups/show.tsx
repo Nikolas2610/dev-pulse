@@ -108,9 +108,62 @@ export default function StandupsShow({
                                                         {answer.answer_text ||
                                                             '-'}
                                                     </div>
+                                                    {response.items
+                                                        ?.filter(
+                                                            (item: any) =>
+                                                                item.standup_question_id ===
+                                                                answer.standup_question_id,
+                                                        )
+                                                        .map((item: any) => (
+                                                            <a
+                                                                key={item.id}
+                                                                href={
+                                                                    item.url_snapshot
+                                                                }
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="mt-2 block rounded-md border bg-muted/30 p-2 text-xs hover:border-primary/40"
+                                                            >
+                                                                <span className="font-semibold text-primary">
+                                                                    {item.external_key ??
+                                                                        'Jira'}
+                                                                </span>{' '}
+                                                                {
+                                                                    item.title_snapshot
+                                                                }
+                                                                <span className="ml-2 text-muted-foreground">
+                                                                    {
+                                                                        item.status_snapshot
+                                                                    }
+                                                                </span>
+                                                            </a>
+                                                        ))}
                                                 </div>
                                             ),
                                         )}
+                                        {response.items
+                                            ?.filter(
+                                                (item: any) =>
+                                                    !item.standup_question_id,
+                                            )
+                                            .map((item: any) => (
+                                                <a
+                                                    key={item.id}
+                                                    href={item.url_snapshot}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="block rounded-md border bg-muted/30 p-2 text-xs hover:border-primary/40"
+                                                >
+                                                    <span className="mr-2 font-semibold text-muted-foreground uppercase">
+                                                        {item.relation}
+                                                    </span>
+                                                    <span className="font-semibold text-primary">
+                                                        {item.external_key ??
+                                                            'Jira'}
+                                                    </span>{' '}
+                                                    {item.title_snapshot}
+                                                </a>
+                                            ))}
                                     </div>
                                 </div>
                             ))

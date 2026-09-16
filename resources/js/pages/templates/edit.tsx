@@ -21,6 +21,7 @@ export default function TemplatesEdit({ template }: { template: any }) {
             id: question.id,
             question_text: question.question_text,
             question_key: question.question_key ?? '',
+            work_item_relation: question.work_item_relation ?? null,
             answer_type: question.answer_type ?? 'textarea',
             options_json: question.options_json ?? null,
             depends_on_question_id: question.depends_on_question_id ?? null,

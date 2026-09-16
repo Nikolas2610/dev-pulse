@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -123,13 +124,46 @@ class AtlassianIntegrationController extends Controller
     public function assignResources(Request $request, string $provider, Integration $integration, CurrentOrganization $current): RedirectResponse
     {
         $this->authorizeIntegration($request, $provider, $integration, $current);
-        $validated = $request->validate(['workspace_id' => ['required', 'integer'], 'resource_ids' => ['array'], 'resource_ids.*' => ['integer']]);
+        $validated = $request->validate([
+            'workspace_id' => ['required', 'integer'],
+            'resource_ids' => ['array'],
+            'resource_ids.*' => ['integer'],
+            'status_filters' => ['sometimes', 'array'],
+            'status_filters.*' => ['nullable', 'array', 'min:1'],
+            'status_filters.*.*' => ['string'],
+        ]);
         $workspace = Workspace::query()->where('organization_id', $integration->organization_id)->whereKey($validated['workspace_id'])->firstOrFail();
         $ids = $provider === 'jira'
             ? JiraProject::query()->where('integration_id', $integration->id)->whereIn('id', $validated['resource_ids'] ?? [])->pluck('id')
             : BitbucketRepository::query()->where('integration_id', $integration->id)->whereIn('id', $validated['resource_ids'] ?? [])->pluck('id');
         if ($provider === 'jira') {
-            $workspace->jiraProjects()->sync($ids);
+            $projects = JiraProject::query()
+                ->where('integration_id', $integration->id)
+                ->whereIn('id', $ids)
+                ->get()
+                ->keyBy('id');
+            $syncData = [];
+
+            foreach ($ids as $id) {
+                $project = $projects->get($id);
+                if (! $project instanceof JiraProject) {
+                    continue;
+                }
+                $selected = data_get($validated, 'status_filters.'.$id);
+                $selected = is_array($selected) ? array_values(array_unique(array_map('strval', $selected))) : null;
+                if ($selected !== null) {
+                    if (array_diff($selected, $project->statusIds()) !== []) {
+                        throw ValidationException::withMessages([
+                            "status_filters.{$id}" => __('One or more selected Jira statuses are invalid.'),
+                        ]);
+                    }
+                }
+                $syncData[$id] = [
+                    'included_status_ids' => $selected === null ? null : json_encode($selected, JSON_THROW_ON_ERROR),
+                ];
+            }
+
+            $workspace->jiraProjects()->sync($syncData);
         } else {
             $workspace->bitbucketRepositories()->sync($ids);
         }

@@ -7,6 +7,7 @@ use App\Models\Integration;
 use App\Models\IntegrationUser;
 use App\Models\JiraProject;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -47,23 +48,31 @@ class JiraIntegrationService
         $seen = [];
         foreach ($this->pages($integration, '/rest/api/3/project/search') as $project) {
             $seen[] = (string) $project['id'];
-            JiraProject::updateOrCreate(
+            $jiraProject = JiraProject::updateOrCreate(
                 ['integration_id' => $integration->id, 'external_id' => (string) $project['id']],
                 ['project_key' => $project['key'], 'name' => $project['name'], 'avatar_url' => data_get($project, 'avatarUrls.48x48'), 'is_active' => true, 'last_synced_at' => now()],
             );
+            $jiraProject->update([
+                'statuses_json' => $this->projectStatuses($integration, $jiraProject),
+            ]);
         }
         $integration->jiraProjects()->when($seen, fn ($q) => $q->whereNotIn('external_id', $seen))->update(['is_active' => false]);
     }
 
     public function syncIssues(Integration $integration, JiraProject $project): void
     {
-        $workspaceIds = $project->workspaces()->pluck('workspaces.id');
-        foreach ($workspaceIds as $workspaceId) {
+        $workspaces = $project->workspaces()->get(['workspaces.id']);
+        foreach ($workspaces as $workspace) {
+            $workspaceId = $workspace->id;
+            $pivot = $workspace->getRelationValue('pivot');
+            $includedStatusIds = $this->statusIdsFromPivot(
+                $pivot instanceof Pivot ? $pivot->getAttribute('included_status_ids') : null,
+            );
             $seen = [];
             $startAt = 0;
             do {
                 $payload = $this->request($integration)->get('/rest/api/3/search/jql', [
-                    'jql' => 'project = "'.$project->project_key.'" AND statusCategory != Done AND assignee IS NOT EMPTY',
+                    'jql' => $this->jqlForWorkspaceProject($project, $includedStatusIds),
                     'fields' => 'summary,status,priority,assignee,duedate,updated,labels,issuelinks',
                     'startAt' => $startAt,
                     'maxResults' => 100,
@@ -82,13 +91,72 @@ class JiraIntegrationService
                     }
                     ExternalWorkItem::updateOrCreate(
                         ['provider' => 'jira', 'integration_id' => $integration->id, 'external_id' => (string) $issue['id'], 'workspace_id' => $workspaceId],
-                        ['workspace_id' => $workspaceId, 'jira_project_id' => $project->id, 'assignee_integration_user_id' => $assignee?->id, 'external_key' => $issue['key'], 'type' => 'jira_issue', 'title' => $fields['summary'] ?? $issue['key'], 'url' => rtrim((string) data_get($integration->settings(), 'site_url'), '/').'/browse/'.$issue['key'], 'status' => data_get($fields, 'status.name', 'Open'), 'priority' => data_get($fields, 'priority.name'), 'is_blocked' => $isBlocked, 'provider_updated_at' => $fields['updated'] ?? null, 'due_date' => $fields['duedate'] ?? null, 'closed_at' => null, 'last_synced_at' => now(), 'raw_json' => ['statusCategory' => data_get($fields, 'status.statusCategory.key')]],
+                        ['workspace_id' => $workspaceId, 'jira_project_id' => $project->id, 'assignee_integration_user_id' => $assignee?->id, 'external_key' => $issue['key'], 'type' => 'jira_issue', 'title' => $fields['summary'] ?? $issue['key'], 'url' => rtrim((string) data_get($integration->settings(), 'site_url'), '/').'/browse/'.$issue['key'], 'status' => data_get($fields, 'status.name', 'Open'), 'external_status_id' => data_get($fields, 'status.id'), 'priority' => data_get($fields, 'priority.name'), 'is_blocked' => $isBlocked, 'provider_updated_at' => $fields['updated'] ?? null, 'due_date' => $fields['duedate'] ?? null, 'closed_at' => null, 'last_synced_at' => now(), 'raw_json' => ['statusCategory' => data_get($fields, 'status.statusCategory.key')]],
                     );
                 }
                 $startAt += count($payload['issues'] ?? []);
             } while ($startAt < (int) ($payload['total'] ?? 0));
             ExternalWorkItem::query()->where('provider', 'jira')->where('integration_id', $integration->id)->where('workspace_id', $workspaceId)->where('jira_project_id', $project->id)->whereNull('closed_at')->when($seen, fn ($q) => $q->whereNotIn('external_id', $seen))->update(['closed_at' => now(), 'status' => 'Done']);
         }
+    }
+
+    /** @param array<int, string>|null $includedStatusIds */
+    public function jqlForWorkspaceProject(JiraProject $project, ?array $includedStatusIds): string
+    {
+        $projectKey = str_replace('"', '\\"', $project->project_key);
+        $statusClause = 'statusCategory != Done';
+
+        if ($includedStatusIds !== null && $includedStatusIds !== []) {
+            $quotedStatusIds = array_map(
+                fn (string $statusId): string => '"'.str_replace('"', '\\"', $statusId).'"',
+                $includedStatusIds,
+            );
+            $statusClause = 'status IN ('.implode(', ', $quotedStatusIds).')';
+        }
+
+        return 'project = "'.$projectKey.'" AND '.$statusClause.' AND assignee IS NOT EMPTY';
+    }
+
+    /** @return array<int, array{id: string, name: string, category_key: string}> */
+    private function projectStatuses(Integration $integration, JiraProject $project): array
+    {
+        $payload = $this->request($integration)
+            ->get('/rest/api/3/project/'.rawurlencode($project->project_key).'/statuses')
+            ->throw()
+            ->json();
+        $statuses = [];
+
+        foreach (is_array($payload) ? $payload : [] as $issueType) {
+            $rows = isset($issueType['statuses']) && is_array($issueType['statuses'])
+                ? $issueType['statuses']
+                : [$issueType];
+            foreach ($rows as $status) {
+                if (! is_array($status) || blank($status['id'] ?? null)) {
+                    continue;
+                }
+                $statuses[(string) $status['id']] = [
+                    'id' => (string) $status['id'],
+                    'name' => (string) ($status['name'] ?? $status['id']),
+                    'category_key' => (string) data_get($status, 'statusCategory.key', ''),
+                ];
+            }
+        }
+
+        return array_values($statuses);
+    }
+
+    /** @return array<int, string>|null */
+    private function statusIdsFromPivot(mixed $value): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+
+        return is_array($decoded)
+            ? array_values(array_map('strval', $decoded))
+            : null;
     }
 
     private function request(Integration $integration): PendingRequest
