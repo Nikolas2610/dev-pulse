@@ -8,6 +8,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $standup_template_id
+ * @property string $question_text
+ * @property string|null $question_key
+ * @property string|null $work_item_relation
+ * @property string $answer_type
+ * @property array<int, string>|null $options_json
+ * @property bool $is_required
+ * @property int $sort_order
+ */
 #[Fillable([
     'standup_template_id',
     'question_text',
@@ -21,17 +32,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'is_required',
     'sort_order',
 ])]
-/**
- * @property int $id
- * @property int $standup_template_id
- * @property string $question_text
- * @property string|null $question_key
- * @property string|null $work_item_relation
- * @property string $answer_type
- * @property array<int, string>|null $options_json
- * @property bool $is_required
- * @property int $sort_order
- */
 class StandupQuestion extends Model
 {
     /** @use HasFactory<StandupQuestionFactory> */
