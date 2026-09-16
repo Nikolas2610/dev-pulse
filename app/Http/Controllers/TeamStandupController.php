@@ -35,6 +35,7 @@ class TeamStandupController extends Controller
                 'run.template:id,name',
                 'answers:id,standup_response_id,standup_question_id,answer_text',
                 'answers.question:id,question_text,question_key,sort_order',
+                'items:id,standup_response_id,standup_question_id,relation,external_key,title_snapshot,status_snapshot,url_snapshot',
             ])
             ->where('standup_responses.organization_id', $organization?->id)
             ->when($workspace, fn (Builder $query) => $query->where('standup_responses.workspace_id', $workspace->id))
@@ -76,6 +77,26 @@ class TeamStandupController extends Controller
                         'key' => $answer->question?->question_key,
                         'question' => $answer->question?->question_text,
                         'answer' => $answer->answer_text,
+                        'items' => $response->items
+                            ->where('standup_question_id', $answer->standup_question_id)
+                            ->map(fn ($item) => [
+                                'id' => $item->id,
+                                'external_key' => $item->external_key,
+                                'title' => $item->title_snapshot,
+                                'status' => $item->status_snapshot,
+                                'url' => $item->url_snapshot,
+                                'relation' => $item->relation,
+                            ])->values()->all(),
+                    ])->values()->all(),
+                'linkedWork' => $response->items
+                    ->whereNull('standup_question_id')
+                    ->map(fn ($item) => [
+                        'id' => $item->id,
+                        'external_key' => $item->external_key,
+                        'title' => $item->title_snapshot,
+                        'status' => $item->status_snapshot,
+                        'url' => $item->url_snapshot,
+                        'relation' => $item->relation,
                     ])->values()->all(),
             ]);
 

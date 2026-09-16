@@ -47,7 +47,8 @@ class AtlassianIntegrationTest extends TestCase
     {
         [$user, $organization, $workspace] = $this->workspaceUser();
         $template = StandupTemplate::factory()->for($organization)->for($workspace)->create(['created_by_user_id' => $user->id]);
-        $question = StandupQuestion::create(['standup_template_id' => $template->id, 'question_text' => 'Today?', 'question_key' => 'today', 'answer_type' => 'textarea', 'is_required' => true, 'sort_order' => 1]);
+        $question = StandupQuestion::create(['standup_template_id' => $template->id, 'question_text' => 'Today?', 'question_key' => 'today', 'work_item_relation' => 'planned', 'answer_type' => 'textarea', 'is_required' => true, 'sort_order' => 1]);
+        $yesterdayQuestion = StandupQuestion::create(['standup_template_id' => $template->id, 'question_text' => 'Yesterday?', 'question_key' => 'yesterday', 'work_item_relation' => 'worked_on', 'answer_type' => 'textarea', 'is_required' => false, 'sort_order' => 2]);
         $run = StandupRun::factory()->for($organization)->for($workspace)->for($template)->create(['status' => 'active']);
         StandupResponse::create(['organization_id' => $organization->id, 'workspace_id' => $workspace->id, 'standup_run_id' => $run->id, 'user_id' => $user->id, 'status' => 'pending']);
         $integration = Integration::factory()->for($organization)->create(['workspace_id' => null, 'provider' => 'jira', 'settings_json' => ['cloud_id' => 'cloud-1', 'site_url' => 'https://example.atlassian.net']]);
@@ -61,13 +62,21 @@ class AtlassianIntegrationTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->has('suggestedWorkItems', 1)->where('suggestedWorkItems.0.id', $item->id));
 
         $this->actingAs($user)->post(route('standup-runs.submit.store', $run), [
-            'answers' => [$question->id => 'Working on the integration'],
-            'work_items' => [['external_work_item_id' => $item->id, 'relation' => 'worked_on']],
+            'answers' => [$question->id => 'Working on the integration', $yesterdayQuestion->id => 'Started it yesterday'],
+            'work_items' => [$question->id => [$item->id], $yesterdayQuestion->id => [$item->id]],
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('standup_response_items', ['external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration', 'relation' => 'worked_on']);
+        $this->assertDatabaseHas('standup_response_items', ['standup_question_id' => $question->id, 'external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration', 'relation' => 'planned']);
+        $this->assertDatabaseHas('standup_response_items', ['standup_question_id' => $yesterdayQuestion->id, 'external_work_item_id' => $item->id, 'relation' => 'worked_on']);
         $item->update(['title' => 'Renamed remotely']);
         $this->assertDatabaseHas('standup_response_items', ['external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration']);
+
+        $this->actingAs($user)->get(route('team-standups.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('responses.data.0.answers.0.items.0.external_key', 'DEV-1')
+                ->where('responses.data.0.answers.0.items.0.title', 'Ship Jira integration')
+                ->where('responses.data.0.answers.0.items.0.status', 'In Progress'));
     }
 
     public function test_jira_project_sync_discovers_available_statuses(): void
