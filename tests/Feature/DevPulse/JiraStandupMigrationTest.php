@@ -27,6 +27,7 @@ class JiraStandupMigrationTest extends TestCase
         $this->assertTrue(Schema::hasColumn('workspace_jira_project', 'included_status_ids'));
         $this->assertTrue(Schema::hasColumn('external_work_items', 'external_status_id'));
         $this->assertTrue(Schema::hasColumn('standup_response_items', 'standup_question_id'));
+        $this->assertTrue(Schema::hasIndex('standup_response_items', ['standup_response_id']));
         $this->assertTrue(Schema::hasIndex('standup_response_items', 'standup_response_work_item_relation_unique'));
     }
 }

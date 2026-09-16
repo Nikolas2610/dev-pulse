@@ -25,6 +25,10 @@ return new class extends Migration
             $table->string('external_status_id')->nullable()->after('status');
         });
 
+        Schema::whenTableDoesntHaveIndex('standup_response_items', ['standup_response_id'], function (Blueprint $table) {
+            $table->index('standup_response_id');
+        });
+
         Schema::whenTableHasIndex('standup_response_items', 'standup_response_work_item_unique', function (Blueprint $table) {
             $table->dropUnique('standup_response_work_item_unique');
         });
