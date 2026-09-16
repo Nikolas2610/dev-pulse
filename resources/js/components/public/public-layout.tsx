@@ -28,7 +28,7 @@ export function PublicLayout({
     const actionLabel = user ? 'Open dashboard' : 'Start free';
 
     return (
-        <div className="public-site min-h-[100dvh] overflow-x-hidden bg-[#07131f] text-[#f3f7fa]">
+        <div className="public-site min-h-[100dvh] overflow-x-clip bg-[#07131f] text-[#f3f7fa]">
             <header className="sticky top-0 z-40 border-b border-white/8 bg-[#07131f]/92 backdrop-blur-xl">
                 <div className="mx-auto flex h-[68px] max-w-[1400px] items-center justify-between px-5 md:px-8 lg:px-10">
                     <Link
