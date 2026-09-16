@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -28,6 +29,15 @@ class AtlassianIntegrationTest extends TestCase
         parent::setUp();
 
         config(['features.atlassian_integrations' => true]);
+    }
+
+    public function test_jira_standup_metadata_schema_is_available(): void
+    {
+        $this->assertTrue(Schema::hasColumn('standup_questions', 'work_item_relation'));
+        $this->assertTrue(Schema::hasColumn('jira_projects', 'statuses_json'));
+        $this->assertTrue(Schema::hasColumn('workspace_jira_project', 'included_status_ids'));
+        $this->assertTrue(Schema::hasColumn('external_work_items', 'external_status_id'));
+        $this->assertTrue(Schema::hasColumn('standup_response_items', 'standup_question_id'));
     }
 
     public function test_user_can_attach_visible_jira_item_and_snapshot_is_immutable(): void

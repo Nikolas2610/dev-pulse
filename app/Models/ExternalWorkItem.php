@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['integration_id', 'workspace_id', 'jira_project_id', 'bitbucket_repository_id', 'assignee_integration_user_id', 'author_integration_user_id', 'provider', 'external_id', 'external_key', 'type', 'title', 'url', 'status', 'priority', 'is_draft', 'is_blocked', 'task_count', 'reviewer_external_ids', 'raw_json', 'provider_updated_at', 'due_date', 'closed_at', 'last_synced_at'])]
+#[Fillable(['integration_id', 'workspace_id', 'jira_project_id', 'bitbucket_repository_id', 'assignee_integration_user_id', 'author_integration_user_id', 'provider', 'external_id', 'external_key', 'type', 'title', 'url', 'status', 'external_status_id', 'priority', 'is_draft', 'is_blocked', 'task_count', 'reviewer_external_ids', 'raw_json', 'provider_updated_at', 'due_date', 'closed_at', 'last_synced_at'])]
 class ExternalWorkItem extends Model
 {
     protected function casts(): array
