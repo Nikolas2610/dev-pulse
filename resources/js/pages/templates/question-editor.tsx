@@ -11,6 +11,7 @@ export type TemplateQuestionForm = {
     id?: number;
     question_text: string;
     question_key: string;
+    work_item_relation?: string | null;
     answer_type: string;
     options_json?: string[] | null;
     depends_on_question_id?: number | null;
@@ -52,6 +53,7 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
             {
                 question_text: '',
                 question_key: '',
+                work_item_relation: null,
                 answer_type: 'textarea',
                 options_json: null,
                 depends_on_question_id: null,
@@ -142,6 +144,14 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
         { label: 'Number', value: 'number' },
     ];
 
+    const workItemRelationOptions = [
+        { label: 'No Jira ticket selector', value: '' },
+        { label: 'Worked on yesterday', value: 'worked_on' },
+        { label: 'Planned for today', value: 'planned' },
+        { label: 'Blocking work', value: 'blocker' },
+        { label: 'Review work', value: 'review' },
+    ];
+
     return (
         <div className="min-w-0 space-y-3">
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -229,6 +239,19 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                                     options={answerTypeOptions}
                                 />
                             </div>
+
+                            <FormSelect
+                                label="Jira ticket selector"
+                                value={question.work_item_relation ?? ''}
+                                onChange={(event) =>
+                                    setQuestion(
+                                        index,
+                                        'work_item_relation',
+                                        event.target.value || null,
+                                    )
+                                }
+                                options={workItemRelationOptions}
+                            />
 
                             {['select', 'multi_select'].includes(
                                 question.answer_type,

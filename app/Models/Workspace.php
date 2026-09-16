@@ -51,7 +51,9 @@ class Workspace extends Model
     /** @return BelongsToMany<JiraProject, $this> */
     public function jiraProjects(): BelongsToMany
     {
-        return $this->belongsToMany(JiraProject::class, 'workspace_jira_project')->withTimestamps();
+        return $this->belongsToMany(JiraProject::class, 'workspace_jira_project')
+            ->withPivot('included_status_ids')
+            ->withTimestamps();
     }
 
     /** @return BelongsToMany<BitbucketRepository, $this> */

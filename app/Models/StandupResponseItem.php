@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['standup_response_id', 'external_work_item_id', 'relation', 'provider', 'external_key', 'title_snapshot', 'status_snapshot', 'url_snapshot'])]
+#[Fillable(['standup_response_id', 'standup_question_id', 'external_work_item_id', 'relation', 'provider', 'external_key', 'title_snapshot', 'status_snapshot', 'url_snapshot'])]
 class StandupResponseItem extends Model
 {
     /** @return BelongsTo<StandupResponse, $this> */
@@ -19,5 +19,11 @@ class StandupResponseItem extends Model
     public function workItem(): BelongsTo
     {
         return $this->belongsTo(ExternalWorkItem::class, 'external_work_item_id');
+    }
+
+    /** @return BelongsTo<StandupQuestion, $this> */
+    public function question(): BelongsTo
+    {
+        return $this->belongsTo(StandupQuestion::class, 'standup_question_id');
     }
 }
