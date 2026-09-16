@@ -14,7 +14,10 @@ use App\Models\StandupRun;
 use App\Models\StandupTemplate;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\JiraIntegrationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -65,6 +68,100 @@ class AtlassianIntegrationTest extends TestCase
         $this->assertDatabaseHas('standup_response_items', ['external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration', 'relation' => 'worked_on']);
         $item->update(['title' => 'Renamed remotely']);
         $this->assertDatabaseHas('standup_response_items', ['external_work_item_id' => $item->id, 'title_snapshot' => 'Ship Jira integration']);
+    }
+
+    public function test_jira_project_sync_discovers_available_statuses(): void
+    {
+        [, $organization] = $this->workspaceUser();
+        $integration = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'jira',
+            'access_token' => 'jira-token',
+            'settings_json' => ['cloud_id' => 'cloud-1'],
+        ]);
+        Http::fake([
+            '*rest/api/3/project/search*' => Http::response([
+                'values' => [['id' => '10000', 'key' => 'DEV', 'name' => 'Development']],
+                'total' => 1,
+            ]),
+            '*rest/api/3/project/DEV/statuses*' => Http::response([
+                ['id' => '1', 'name' => 'To Do', 'statusCategory' => ['key' => 'new']],
+                ['id' => '2', 'name' => 'In Progress', 'statusCategory' => ['key' => 'indeterminate']],
+                ['id' => '3', 'name' => 'Done', 'statusCategory' => ['key' => 'done']],
+            ]),
+        ]);
+
+        app(JiraIntegrationService::class)->syncProjects($integration);
+
+        $this->assertSame([
+            ['id' => '1', 'name' => 'To Do', 'category_key' => 'new'],
+            ['id' => '2', 'name' => 'In Progress', 'category_key' => 'indeterminate'],
+            ['id' => '3', 'name' => 'Done', 'category_key' => 'done'],
+        ], $integration->jiraProjects()->firstOrFail()->statuses_json);
+    }
+
+    public function test_jira_issue_sync_uses_workspace_status_filter(): void
+    {
+        [, $organization, $workspace] = $this->workspaceUser();
+        $integration = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'jira',
+            'access_token' => 'jira-token',
+            'settings_json' => ['cloud_id' => 'cloud-1', 'site_url' => 'https://example.atlassian.net'],
+        ]);
+        $project = JiraProject::create([
+            'integration_id' => $integration->id,
+            'external_id' => '10000',
+            'project_key' => 'DEV',
+            'name' => 'Development',
+            'statuses_json' => [
+                ['id' => '2', 'name' => 'In Progress', 'category_key' => 'indeterminate'],
+                ['id' => '7', 'name' => 'Blocked', 'category_key' => 'indeterminate'],
+            ],
+        ]);
+        $workspace->jiraProjects()->attach($project, ['included_status_ids' => json_encode(['2', '7'])]);
+        Http::fake(['*rest/api/3/search/jql*' => Http::response(['issues' => [], 'total' => 0])]);
+
+        app(JiraIntegrationService::class)->syncIssues($integration, $project);
+
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/rest/api/3/search/jql')
+            && $request->data()['jql'] === 'project = "DEV" AND status IN ("2", "7") AND assignee IS NOT EMPTY');
+    }
+
+    public function test_admin_can_save_jira_status_filters_for_a_workspace_project(): void
+    {
+        Queue::fake();
+        [$user, $organization, $workspace] = $this->workspaceUser();
+        $integration = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'jira',
+        ]);
+        $project = JiraProject::create([
+            'integration_id' => $integration->id,
+            'external_id' => '10000',
+            'project_key' => 'DEV',
+            'name' => 'Development',
+            'statuses_json' => [
+                ['id' => '2', 'name' => 'In Progress', 'category_key' => 'indeterminate'],
+                ['id' => '3', 'name' => 'Done', 'category_key' => 'done'],
+            ],
+        ]);
+
+        $this->actingAs($user)->put(route('integrations.atlassian.resources', [
+            'provider' => 'jira',
+            'integration' => $integration,
+        ]), [
+            'workspace_id' => $workspace->id,
+            'resource_ids' => [$project->id],
+            'status_filters' => [(string) $project->id => ['2']],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('workspace_jira_project', [
+            'workspace_id' => $workspace->id,
+            'jira_project_id' => $project->id,
+            'included_status_ids' => json_encode(['2']),
+        ]);
+        Queue::assertPushed(SyncAtlassianIntegrationJob::class);
     }
 
     public function test_atlassian_integration_pages_are_hidden_when_feature_is_disabled(): void
