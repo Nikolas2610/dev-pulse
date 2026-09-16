@@ -229,6 +229,46 @@ class AtlassianIntegrationTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_dashboard_attention_list_contains_only_blocked_work_items(): void
+    {
+        [$user, $organization, $workspace] = $this->workspaceUser();
+        $integration = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'jira',
+        ]);
+        $project = JiraProject::create([
+            'integration_id' => $integration->id,
+            'external_id' => '10000',
+            'project_key' => 'DEV',
+            'name' => 'Development',
+        ]);
+        foreach ([
+            ['id' => '10001', 'key' => 'DEV-1', 'title' => 'Normal active task', 'blocked' => false],
+            ['id' => '10002', 'key' => 'DEV-2', 'title' => 'Waiting on API access', 'blocked' => true],
+        ] as $row) {
+            ExternalWorkItem::create([
+                'integration_id' => $integration->id,
+                'workspace_id' => $workspace->id,
+                'jira_project_id' => $project->id,
+                'provider' => 'jira',
+                'external_id' => $row['id'],
+                'external_key' => $row['key'],
+                'type' => 'jira_issue',
+                'title' => $row['title'],
+                'url' => 'https://example.atlassian.net/browse/'.$row['key'],
+                'status' => 'In Progress',
+                'is_blocked' => $row['blocked'],
+            ]);
+        }
+
+        $this->actingAs($user)->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('engineeringWork.items', 1)
+                ->where('engineeringWork.items.0.external_key', 'DEV-2')
+                ->where('engineeringWork.items.0.title', 'Waiting on API access'));
+    }
+
     public function test_bitbucket_webhook_requires_valid_signature_and_is_deduplicated(): void
     {
         Queue::fake();
