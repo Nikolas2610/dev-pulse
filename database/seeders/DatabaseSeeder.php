@@ -84,14 +84,15 @@ class DatabaseSeeder extends Seeder
 
         if ($template->questions()->count() === 0) {
             foreach ([
-                ['What did you complete yesterday?', 'yesterday', 1],
-                ['What are you focusing on today?', 'today', 2],
-                ['Are you blocked by anything?', 'blocker', 3],
-                ['Which ticket are you working on?', 'ticket', 4],
-            ] as [$text, $key, $order]) {
+                ['What did you complete yesterday?', 'yesterday', 'worked_on', 1],
+                ['What are you focusing on today?', 'today', 'planned', 2],
+                ['Are you blocked by anything?', 'blocker', null, 3],
+                ['Which ticket are you working on?', 'ticket', null, 4],
+            ] as [$text, $key, $relation, $order]) {
                 $template->questions()->create([
                     'question_text' => $text,
                     'question_key' => $key,
+                    'work_item_relation' => $relation,
                     'answer_type' => 'textarea',
                     'is_required' => true,
                     'sort_order' => $order,

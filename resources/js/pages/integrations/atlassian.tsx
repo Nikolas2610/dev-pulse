@@ -336,10 +336,7 @@ function ResourceAssignment({
     const form = useForm({
         workspace_id: workspace.id,
         resource_ids: selected,
-        status_filters: initialStatusFilters as Record<
-            string,
-            string[] | null
-        >,
+        status_filters: initialStatusFilters as Record<string, string[] | null>,
     });
 
     return (
@@ -399,8 +396,7 @@ function ResourceAssignment({
                                             variant="ghost"
                                             onClick={() =>
                                                 form.setData('status_filters', {
-                                                    ...form.data
-                                                        .status_filters,
+                                                    ...form.data.status_filters,
                                                     [projectId]: null,
                                                 })
                                             }

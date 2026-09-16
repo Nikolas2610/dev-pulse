@@ -427,10 +427,7 @@ function ResponseCard({ response }: { response: TeamResponse }) {
                                 </div>
                                 <div className="grid gap-2 md:grid-cols-2">
                                     {response.linkedWork.map((item) => (
-                                        <TicketLink
-                                            key={item.id}
-                                            item={item}
-                                        />
+                                        <TicketLink key={item.id} item={item} />
                                     ))}
                                 </div>
                             </div>

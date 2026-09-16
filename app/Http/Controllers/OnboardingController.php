@@ -577,6 +577,7 @@ class OnboardingController extends Controller
     private function normalizeQuestionOptions(array $questions): array
     {
         $errors = [];
+        $usedRelations = [];
 
         foreach ($questions as $index => $question) {
             $rawOptions = is_array($question['options_json'] ?? null) ? $question['options_json'] : [];
@@ -586,6 +587,13 @@ class OnboardingController extends Controller
 
             if (in_array($question['answer_type'] ?? null, ['select', 'multi_select'], true) && $options === []) {
                 $errors["questions.{$index}.options_json"] = __('Add at least one answer option.');
+            }
+
+            $relation = $question['work_item_relation'] ?? null;
+            if ($relation && in_array($relation, $usedRelations, true)) {
+                $errors["questions.{$index}.work_item_relation"] = __('Each Jira ticket relation can be used only once per template.');
+            } elseif ($relation) {
+                $usedRelations[] = $relation;
             }
 
             $questions[$index]['options_json'] = $options === [] ? null : $options;
