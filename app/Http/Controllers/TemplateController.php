@@ -57,6 +57,7 @@ class TemplateController extends Controller
             'questions' => ['required', 'array', 'min:1'],
             'questions.*.question_text' => ['required', 'string'],
             'questions.*.question_key' => ['nullable', 'string', 'max:255'],
+            'questions.*.work_item_relation' => ['nullable', 'string', 'in:worked_on,planned,blocker,review'],
             'questions.*.answer_type' => ['required', 'string', 'in:text,textarea,boolean,select,multi_select,number'],
             'questions.*.options_json' => ['nullable', 'array'],
             'questions.*.depends_on_question_id' => ['nullable', 'integer'],
@@ -90,6 +91,7 @@ class TemplateController extends Controller
             $savedQuestions->push($template->questions()->create([
                 'question_text' => $question['question_text'],
                 'question_key' => $question['question_key'] ?? null,
+                'work_item_relation' => $question['work_item_relation'] ?? null,
                 'answer_type' => $question['answer_type'],
                 'options_json' => $question['options_json'] ?? null,
                 'is_required' => (bool) ($question['is_required'] ?? true),
@@ -133,6 +135,7 @@ class TemplateController extends Controller
             'questions.*.id' => ['nullable', 'integer'],
             'questions.*.question_text' => ['required', 'string'],
             'questions.*.question_key' => ['nullable', 'string', 'max:255'],
+            'questions.*.work_item_relation' => ['nullable', 'string', 'in:worked_on,planned,blocker,review'],
             'questions.*.answer_type' => ['required', 'string', 'in:text,textarea,boolean,select,multi_select,number'],
             'questions.*.options_json' => ['nullable', 'array'],
             'questions.*.depends_on_question_id' => ['nullable', 'integer'],
@@ -162,6 +165,7 @@ class TemplateController extends Controller
                 [
                     'question_text' => $question['question_text'],
                     'question_key' => $question['question_key'] ?? null,
+                    'work_item_relation' => $question['work_item_relation'] ?? null,
                     'answer_type' => $question['answer_type'],
                     'options_json' => $question['options_json'] ?? null,
                     'is_required' => (bool) ($question['is_required'] ?? true),
@@ -189,6 +193,7 @@ class TemplateController extends Controller
     private function normalizeQuestionOptions(array $questions): array
     {
         $errors = [];
+        $usedRelations = [];
 
         foreach ($questions as $index => $question) {
             $rawOptions = $question['options_json'] ?? [];
@@ -201,6 +206,13 @@ class TemplateController extends Controller
 
             if (in_array($question['answer_type'] ?? null, ['select', 'multi_select'], true) && $options === []) {
                 $errors["questions.{$index}.options_json"] = __('Add at least one answer option.');
+            }
+
+            $relation = $question['work_item_relation'] ?? null;
+            if ($relation && in_array($relation, $usedRelations, true)) {
+                $errors["questions.{$index}.work_item_relation"] = __('Each Jira ticket relation can be used only once per template.');
+            } elseif ($relation) {
+                $usedRelations[] = $relation;
             }
 
             $questions[$index]['options_json'] = $options === [] ? null : $options;

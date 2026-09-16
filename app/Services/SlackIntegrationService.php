@@ -16,7 +16,10 @@ use Throwable;
 
 class SlackIntegrationService
 {
-    public function __construct(private readonly ActivityEventService $events) {}
+    public function __construct(
+        private readonly ActivityEventService $events,
+        private readonly WorkItemSuggestionService $workItemSuggestions,
+    ) {}
 
     public function syncUsers(Integration $integration): int
     {
@@ -253,8 +256,61 @@ class SlackIntegrationService
         StandupRun $run,
         ?string $channel = null,
         ?string $messageTs = null,
+        ?User $user = null,
     ): void {
         $run->loadMissing('workspace', 'template.questions');
+        $workItems = $user
+            ? $this->workItemSuggestions->jiraForUser($user, $run->workspace)
+            : collect();
+        $blocks = $run->template->questions
+            ->sortBy('sort_order')
+            ->values()
+            ->flatMap(function ($question) use ($workItems): array {
+                $questionBlocks = [[
+                    'type' => 'input',
+                    'block_id' => 'question_'.$question->id,
+                    'optional' => ! $question->is_required,
+                    'label' => [
+                        'type' => 'plain_text',
+                        'text' => mb_substr($question->question_text, 0, 150),
+                    ],
+                    'element' => $this->standupQuestionInputElement($question),
+                ]];
+
+                if (filled($question->work_item_relation) && $workItems->isNotEmpty()) {
+                    $questionBlocks[] = [
+                        'type' => 'input',
+                        'block_id' => 'work_items_'.$question->id,
+                        'optional' => true,
+                        'label' => [
+                            'type' => 'plain_text',
+                            'text' => 'Jira tickets',
+                        ],
+                        'element' => [
+                            'type' => 'multi_static_select',
+                            'action_id' => 'selected_items',
+                            'placeholder' => [
+                                'type' => 'plain_text',
+                                'text' => 'Select Jira tickets',
+                            ],
+                            'options' => $workItems->take(100)->map(fn ($item) => [
+                                'text' => [
+                                    'type' => 'plain_text',
+                                    'text' => mb_substr(trim(($item->external_key ? $item->external_key.' · ' : '').$item->title), 0, 75),
+                                ],
+                                'description' => [
+                                    'type' => 'plain_text',
+                                    'text' => mb_substr(trim(($item->jiraProject?->name ? $item->jiraProject->name.' · ' : '').$item->status), 0, 75),
+                                ],
+                                'value' => (string) $item->id,
+                            ])->values()->all(),
+                        ],
+                    ];
+                }
+
+                return $questionBlocks;
+            })
+            ->all();
 
         $payload = $this->postSlackApi($integration, 'views.open', [
             'trigger_id' => $triggerId,
@@ -280,20 +336,7 @@ class SlackIntegrationService
                     'type' => 'plain_text',
                     'text' => 'Cancel',
                 ],
-                'blocks' => $run->template->questions
-                    ->sortBy('sort_order')
-                    ->values()
-                    ->map(fn ($question) => [
-                        'type' => 'input',
-                        'block_id' => 'question_'.$question->id,
-                        'optional' => ! $question->is_required,
-                        'label' => [
-                            'type' => 'plain_text',
-                            'text' => mb_substr($question->question_text, 0, 150),
-                        ],
-                        'element' => $this->standupQuestionInputElement($question),
-                    ])
-                    ->all(),
+                'blocks' => $blocks,
             ],
         ]);
 

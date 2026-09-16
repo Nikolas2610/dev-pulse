@@ -35,7 +35,17 @@ type TeamResponse = {
         key: string | null;
         question: string | null;
         answer: string | null;
+        items: WorkItemSnapshot[];
     }>;
+    linkedWork: WorkItemSnapshot[];
+};
+type WorkItemSnapshot = {
+    id: number;
+    external_key: string | null;
+    title: string;
+    status: string;
+    url: string;
+    relation: string;
 };
 type PaginatedResponses = {
     data: TeamResponse[];
@@ -382,20 +392,46 @@ function ResponseCard({ response }: { response: TeamResponse }) {
             </CardHeader>
             <CardContent>
                 {response.answers.length ? (
-                    <div className="grid min-w-0 gap-px overflow-hidden rounded-md border bg-border md:grid-cols-2 xl:grid-cols-4">
-                        {response.answers.map((answer, index) => (
-                            <div
-                                key={`${answer.key}-${index}`}
-                                className="min-w-0 bg-card p-4"
-                            >
-                                <div className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                                    {answer.question ?? answer.key ?? 'Answer'}
+                    <div className="space-y-3">
+                        <div className="grid min-w-0 gap-px overflow-hidden rounded-md border bg-border md:grid-cols-2 xl:grid-cols-4">
+                            {response.answers.map((answer, index) => (
+                                <div
+                                    key={`${answer.key}-${index}`}
+                                    className="min-w-0 bg-card p-4"
+                                >
+                                    <div className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                        {answer.question ??
+                                            answer.key ??
+                                            'Answer'}
+                                    </div>
+                                    <p className="text-sm break-words whitespace-pre-wrap">
+                                        {answer.answer || 'No answer provided'}
+                                    </p>
+                                    {answer.items.length > 0 && (
+                                        <div className="mt-3 flex flex-col gap-2">
+                                            {answer.items.map((item) => (
+                                                <TicketLink
+                                                    key={item.id}
+                                                    item={item}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-sm break-words whitespace-pre-wrap">
-                                    {answer.answer || 'No answer provided'}
-                                </p>
+                            ))}
+                        </div>
+                        {response.linkedWork.length > 0 && (
+                            <div className="rounded-md border p-3">
+                                <div className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                    Linked work
+                                </div>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                    {response.linkedWork.map((item) => (
+                                        <TicketLink key={item.id} item={item} />
+                                    ))}
+                                </div>
                             </div>
-                        ))}
+                        )}
                     </div>
                 ) : (
                     <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground">
@@ -405,5 +441,24 @@ function ResponseCard({ response }: { response: TeamResponse }) {
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+function TicketLink({ item }: { item: WorkItemSnapshot }) {
+    return (
+        <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md border bg-background p-2 text-xs transition-colors hover:border-primary/40 hover:bg-muted/50"
+        >
+            <span className="font-semibold text-primary">
+                {item.external_key ?? 'Jira'}
+            </span>{' '}
+            <span>{item.title}</span>
+            <span className="mt-1 block text-muted-foreground">
+                {item.status}
+            </span>
+        </a>
     );
 }

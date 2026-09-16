@@ -309,9 +309,34 @@ function ResourceAssignment({
             ),
         )
         .map((resource: any) => resource.id);
+    const initialStatusFilters = Object.fromEntries(
+        resources.map((resource: any) => {
+            const assignment = resource.workspaces?.find(
+                (assigned: any) => assigned.id === workspace.id,
+            );
+            const raw = assignment?.pivot?.included_status_ids;
+            let statusIds: string[] | null = null;
+
+            if (Array.isArray(raw)) {
+                statusIds = raw.map(String);
+            } else if (typeof raw === 'string') {
+                try {
+                    const parsed = JSON.parse(raw);
+                    statusIds = Array.isArray(parsed)
+                        ? parsed.map(String)
+                        : null;
+                } catch {
+                    statusIds = null;
+                }
+            }
+
+            return [String(resource.id), statusIds];
+        }),
+    );
     const form = useForm({
         workspace_id: workspace.id,
         resource_ids: selected,
+        status_filters: initialStatusFilters as Record<string, string[] | null>,
     });
 
     return (
@@ -338,6 +363,70 @@ function ResourceAssignment({
                             : resource.full_name,
                 }))}
             />
+            {provider === 'jira' &&
+                resources
+                    .filter((resource: any) =>
+                        form.data.resource_ids.includes(resource.id),
+                    )
+                    .map((resource: any) => {
+                        const projectId = String(resource.id);
+                        const selectedStatuses =
+                            form.data.status_filters[projectId];
+
+                        return (
+                            <div
+                                key={resource.id}
+                                className="rounded-md border bg-muted/20 p-3"
+                            >
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            {resource.project_key} statuses
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {selectedStatuses === null
+                                                ? 'Default: every status except Done'
+                                                : 'Only the selected statuses will appear in standups'}
+                                        </div>
+                                    </div>
+                                    {selectedStatuses !== null && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() =>
+                                                form.setData('status_filters', {
+                                                    ...form.data.status_filters,
+                                                    [projectId]: null,
+                                                })
+                                            }
+                                        >
+                                            Use default
+                                        </Button>
+                                    )}
+                                </div>
+                                <FormMultiSelect
+                                    label="Included Jira statuses"
+                                    value={selectedStatuses ?? []}
+                                    onValueChange={(value) =>
+                                        form.setData('status_filters', {
+                                            ...form.data.status_filters,
+                                            [projectId]: value.length
+                                                ? value.map(String)
+                                                : null,
+                                        })
+                                    }
+                                    options={(resource.statuses_json ?? []).map(
+                                        (status: any) => ({
+                                            value: String(status.id),
+                                            label: `${status.name} · ${status.category_key || 'uncategorized'}`,
+                                        }),
+                                    )}
+                                    description="Leave empty to include every non-Done status."
+                                />
+                            </div>
+                        );
+                    })}
             <Button className="self-start" disabled={form.processing}>
                 Save assignment
             </Button>
