@@ -164,6 +164,51 @@ class AtlassianIntegrationTest extends TestCase
         Queue::assertPushed(SyncAtlassianIntegrationJob::class);
     }
 
+    public function test_template_questions_persist_work_item_relations(): void
+    {
+        [$user, , $workspace] = $this->workspaceUser();
+
+        $this->actingAs($user)->post(route('templates.store'), [
+            'name' => 'Jira daily',
+            'workspace_id' => $workspace->id,
+            'is_active' => true,
+            'questions' => [[
+                'question_text' => 'What are you focusing on today?',
+                'question_key' => 'today',
+                'work_item_relation' => 'planned',
+                'answer_type' => 'textarea',
+                'is_required' => true,
+                'sort_order' => 1,
+            ]],
+        ])->assertRedirect(route('templates.index'));
+
+        $this->assertDatabaseHas('standup_questions', [
+            'question_key' => 'today',
+            'work_item_relation' => 'planned',
+        ]);
+    }
+
+    public function test_template_rejects_duplicate_work_item_relations(): void
+    {
+        [$user, , $workspace] = $this->workspaceUser();
+        $question = fn (string $text, int $order) => [
+            'question_text' => $text,
+            'question_key' => 'other',
+            'work_item_relation' => 'planned',
+            'answer_type' => 'textarea',
+            'is_required' => true,
+            'sort_order' => $order,
+        ];
+
+        $this->actingAs($user)->from(route('templates.create'))->post(route('templates.store'), [
+            'name' => 'Invalid Jira daily',
+            'workspace_id' => $workspace->id,
+            'is_active' => true,
+            'questions' => [$question('First', 1), $question('Second', 2)],
+        ])->assertRedirect(route('templates.create'))
+            ->assertSessionHasErrors('questions.1.work_item_relation');
+    }
+
     public function test_atlassian_integration_pages_are_hidden_when_feature_is_disabled(): void
     {
         config(['features.atlassian_integrations' => false]);

@@ -4,6 +4,7 @@ export const defaultTemplateQuestions: TemplateQuestionForm[] = [
     {
         question_text: 'What did you complete yesterday?',
         question_key: 'yesterday',
+        work_item_relation: 'worked_on',
         answer_type: 'textarea',
         options_json: null,
         depends_on_question_id: null,
@@ -16,6 +17,7 @@ export const defaultTemplateQuestions: TemplateQuestionForm[] = [
     {
         question_text: 'What are you focusing on today?',
         question_key: 'today',
+        work_item_relation: 'planned',
         answer_type: 'textarea',
         options_json: null,
         depends_on_question_id: null,
@@ -28,6 +30,7 @@ export const defaultTemplateQuestions: TemplateQuestionForm[] = [
     {
         question_text: 'Are you blocked by anything?',
         question_key: 'blocker',
+        work_item_relation: null,
         answer_type: 'boolean',
         options_json: null,
         depends_on_question_id: null,
@@ -40,6 +43,7 @@ export const defaultTemplateQuestions: TemplateQuestionForm[] = [
     {
         question_text: 'What are you blocked by?',
         question_key: 'blocker_detail',
+        work_item_relation: 'blocker',
         answer_type: 'textarea',
         options_json: null,
         depends_on_question_id: null,

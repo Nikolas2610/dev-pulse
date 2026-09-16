@@ -279,6 +279,7 @@ class OnboardingController extends Controller
             'questions.*.id' => ['nullable', 'integer'],
             'questions.*.question_text' => ['required', 'string'],
             'questions.*.question_key' => ['nullable', 'string', 'max:255'],
+            'questions.*.work_item_relation' => ['nullable', 'string', 'in:worked_on,planned,blocker,review'],
             'questions.*.answer_type' => ['required', 'string', 'in:text,textarea,boolean,select,multi_select,number'],
             'questions.*.options_json' => ['nullable', 'array'],
             'questions.*.depends_on_question_id' => ['nullable', 'integer'],
@@ -305,6 +306,7 @@ class OnboardingController extends Controller
                     [
                         'question_text' => $question['question_text'],
                         'question_key' => $question['question_key'] ?? null,
+                        'work_item_relation' => $question['work_item_relation'] ?? null,
                         'answer_type' => $question['answer_type'],
                         'options_json' => $question['options_json'] ?? null,
                         'is_required' => (bool) ($question['is_required'] ?? true),
@@ -509,6 +511,7 @@ class OnboardingController extends Controller
             'standup_template_id' => $template->id,
             'question_text' => 'What did you complete yesterday?',
             'question_key' => 'yesterday',
+            'work_item_relation' => 'worked_on',
             'answer_type' => 'textarea',
             'is_required' => true,
             'sort_order' => 1,
@@ -517,6 +520,7 @@ class OnboardingController extends Controller
             'standup_template_id' => $template->id,
             'question_text' => 'What are you focusing on today?',
             'question_key' => 'today',
+            'work_item_relation' => 'planned',
             'answer_type' => 'textarea',
             'is_required' => true,
             'sort_order' => 2,
@@ -533,6 +537,7 @@ class OnboardingController extends Controller
             'standup_template_id' => $template->id,
             'question_text' => 'What are you blocked by?',
             'question_key' => 'blocker_detail',
+            'work_item_relation' => 'blocker',
             'answer_type' => 'textarea',
             'depends_on_question_id' => $blocker->id,
             'depends_on_operator' => 'equals',
@@ -555,7 +560,7 @@ class OnboardingController extends Controller
             ...$template->only(['id', 'name', 'description']),
             'questions' => $questions->map(fn (StandupQuestion $question) => [
                 ...Arr::only($question->toArray(), [
-                    'id', 'question_text', 'question_key', 'answer_type', 'options_json',
+                    'id', 'question_text', 'question_key', 'work_item_relation', 'answer_type', 'options_json',
                     'depends_on_question_id', 'depends_on_operator', 'depends_on_value', 'is_required', 'sort_order',
                 ]),
                 'depends_on_question_index' => $question->depends_on_question_id
