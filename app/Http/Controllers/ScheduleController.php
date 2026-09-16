@@ -294,10 +294,7 @@ class ScheduleController extends Controller
         $this->authorizeScheduleWorkspace($schedule, $organization, $request, $currentOrganization);
 
         $baseScheduleDate = now($schedule->timezone)->toDateString();
-        $allowsMultipleManualRuns = $this->allowsMultipleManualRunsForManualSend();
-        $scheduleDate = $allowsMultipleManualRuns
-            ? $this->nextAvailableManualRunDate($schedule, $baseScheduleDate)
-            : $baseScheduleDate;
+        $scheduleDate = $this->nextAvailableManualRunDate($schedule, $baseScheduleDate);
 
         $runAttributes = [
             'organization_id' => $schedule->organization_id,
@@ -306,21 +303,11 @@ class ScheduleController extends Controller
             'status' => 'scheduled',
         ];
 
-        $run = $allowsMultipleManualRuns
-            ? StandupRun::create([
-                'standup_schedule_id' => $schedule->id,
-                'run_date' => $scheduleDate,
-                ...$runAttributes,
-            ])
-            : StandupRun::firstOrCreate(
-                [
-                    'standup_schedule_id' => $schedule->id,
-                    'run_date' => $scheduleDate,
-                ],
-                [
-                    ...$runAttributes,
-                ],
-            );
+        $run = StandupRun::create([
+            'standup_schedule_id' => $schedule->id,
+            'run_date' => $scheduleDate,
+            ...$runAttributes,
+        ]);
 
         Log::info('Manual standup send requested', [
             'standup_schedule_id' => $schedule->id,
@@ -328,7 +315,6 @@ class ScheduleController extends Controller
             'base_run_date' => $baseScheduleDate,
             'run_date' => $scheduleDate,
             'run_was_created' => $run->wasRecentlyCreated,
-            'local_allows_multiple_manual_runs' => $allowsMultipleManualRuns,
             'delivery_method' => $schedule->delivery_method,
             'recipient_mode' => $schedule->recipient_mode,
         ]);
@@ -461,11 +447,6 @@ class ScheduleController extends Controller
         ]);
 
         return to_route('schedules.index');
-    }
-
-    private function allowsMultipleManualRunsForManualSend(): bool
-    {
-        return config('app.env') === 'local';
     }
 
     private function nextAvailableManualRunDate(StandupSchedule $schedule, string $baseDate): string

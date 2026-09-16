@@ -11,6 +11,29 @@ use Illuminate\Database\Eloquent\Collection;
 class WorkItemSuggestionService
 {
     /** @return Collection<int, ExternalWorkItem> */
+    public function jiraForUser(User $user, Workspace $workspace): Collection
+    {
+        if (! config('features.atlassian_integrations')) {
+            return new Collection;
+        }
+
+        $jiraIntegrationUserIds = $user->integrationUsers()
+            ->where('provider', 'jira')
+            ->pluck('id');
+
+        return ExternalWorkItem::query()
+            ->with('jiraProject:id,project_key,name')
+            ->where('workspace_id', $workspace->id)
+            ->where('provider', 'jira')
+            ->whereIn('assignee_integration_user_id', $jiraIntegrationUserIds)
+            ->open()
+            ->orderByDesc('is_blocked')
+            ->orderByDesc('provider_updated_at')
+            ->limit(100)
+            ->get();
+    }
+
+    /** @return Collection<int, ExternalWorkItem> */
     public function forUser(User $user, Workspace $workspace): Collection
     {
         if (! config('features.atlassian_integrations')) {

@@ -31,6 +31,7 @@ class StandupRunController extends Controller
             'template.questions',
             'responses.user',
             'responses.answers.question',
+            'responses.items',
             'summary',
         ]);
 

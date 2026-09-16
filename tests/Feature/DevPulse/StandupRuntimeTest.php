@@ -4,9 +4,11 @@ namespace Tests\Feature\DevPulse;
 
 use App\Jobs\GenerateStandupRunsJob;
 use App\Jobs\PostStandupSummaryJob;
+use App\Models\ExternalWorkItem;
 use App\Models\Integration;
 use App\Models\IntegrationChannel;
 use App\Models\IntegrationUser;
+use App\Models\JiraProject;
 use App\Models\Organization;
 use App\Models\StandupQuestion;
 use App\Models\StandupResponse;
@@ -26,6 +28,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class StandupRuntimeTest extends TestCase
@@ -705,17 +708,18 @@ class StandupRuntimeTest extends TestCase
         Notification::assertSentTo($user, StandupPromptNotification::class);
     }
 
-    public function test_local_manual_send_creates_a_new_run_each_time_for_testing(): void
+    #[DataProvider('deployedEnvironments')]
+    public function test_manual_send_creates_a_new_run_each_time_for_testing_in_deployed_environments(string $environment): void
     {
         Notification::fake();
-        config(['app.env' => 'local']);
+        config(['app.env' => $environment]);
 
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
         $schedule = StandupSchedule::create([
             'organization_id' => $organization->id,
             'workspace_id' => $workspace->id,
             'standup_template_id' => $template->id,
-            'name' => 'Local Manual Daily Focus',
+            'name' => 'Manual Daily Focus',
             'timezone' => 'Asia/Nicosia',
             'time_of_day' => '08:30:00',
             'days_of_week' => [1, 2, 3, 4, 5],
@@ -743,6 +747,17 @@ class StandupRuntimeTest extends TestCase
             ->where('status', 'pending')
             ->count());
         Notification::assertCount(2);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function deployedEnvironments(): array
+    {
+        return [
+            'production' => ['production'],
+            'staging' => ['staging'],
+        ];
     }
 
     public function test_slack_dm_delivery_sends_only_to_mapped_pending_users(): void
@@ -915,14 +930,51 @@ class StandupRuntimeTest extends TestCase
 
     public function test_slack_button_interaction_opens_standup_modal(): void
     {
+        config(['features.atlassian_integrations' => true]);
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
-        StandupQuestion::factory()->for($template)->create([
+        $question = StandupQuestion::factory()->for($template)->create([
             'question_text' => 'What are you focusing on today?',
+            'work_item_relation' => 'planned',
         ]);
         $integration = Integration::factory()->for($organization)->for($workspace)->create([
             'provider' => 'slack',
             'bot_token' => 'xoxb-modal',
             'signing_secret' => 'test-signing-secret',
+        ]);
+        IntegrationUser::create([
+            'integration_id' => $integration->id,
+            'user_id' => $user->id,
+            'provider' => 'slack',
+            'external_user_id' => 'U123',
+        ]);
+        $jira = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'jira',
+        ]);
+        $jiraUser = IntegrationUser::create([
+            'integration_id' => $jira->id,
+            'user_id' => $user->id,
+            'provider' => 'jira',
+            'external_user_id' => 'jira-account-1',
+        ]);
+        $project = JiraProject::create([
+            'integration_id' => $jira->id,
+            'external_id' => '10000',
+            'project_key' => 'DEV',
+            'name' => 'Development',
+        ]);
+        ExternalWorkItem::create([
+            'integration_id' => $jira->id,
+            'workspace_id' => $workspace->id,
+            'jira_project_id' => $project->id,
+            'assignee_integration_user_id' => $jiraUser->id,
+            'provider' => 'jira',
+            'external_id' => '10001',
+            'external_key' => 'DEV-1',
+            'type' => 'jira_issue',
+            'title' => 'Ship Slack Jira picker',
+            'url' => 'https://example.atlassian.net/browse/DEV-1',
+            'status' => 'In Progress',
         ]);
         $schedule = StandupSchedule::create([
             'organization_id' => $organization->id,
@@ -953,6 +1005,7 @@ class StandupRuntimeTest extends TestCase
         $this->postSignedSlackPayload([
             'type' => 'block_actions',
             'trigger_id' => 'trigger-123',
+            'user' => ['id' => 'U123'],
             'actions' => [
                 [
                     'action_id' => 'submit_standup',
@@ -964,14 +1017,19 @@ class StandupRuntimeTest extends TestCase
 
         Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/views.open'
             && $request['trigger_id'] === 'trigger-123'
-            && $request['view']['callback_id'] === 'devpulse_standup_submission');
+            && $request['view']['callback_id'] === 'devpulse_standup_submission'
+            && collect($request['view']['blocks'])->contains(fn (array $block) => ($block['block_id'] ?? null) === 'work_items_'.$question->id
+                && data_get($block, 'element.type') === 'multi_static_select'
+                && data_get($block, 'element.options.0.value') !== null));
     }
 
     public function test_slack_modal_submission_stores_standup_answers(): void
     {
+        config(['features.atlassian_integrations' => true]);
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
         $question = StandupQuestion::factory()->for($template)->create([
             'question_text' => 'What are you focusing on today?',
+            'work_item_relation' => 'planned',
         ]);
         $integration = Integration::factory()->for($organization)->for($workspace)->create([
             'provider' => 'slack',
@@ -985,6 +1043,35 @@ class StandupRuntimeTest extends TestCase
             'provider' => 'slack',
             'external_user_id' => 'U123',
             'external_email' => $user->email,
+        ]);
+        $jira = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'jira',
+        ]);
+        $jiraUser = IntegrationUser::create([
+            'integration_id' => $jira->id,
+            'user_id' => $user->id,
+            'provider' => 'jira',
+            'external_user_id' => 'jira-account-1',
+        ]);
+        $project = JiraProject::create([
+            'integration_id' => $jira->id,
+            'external_id' => '10000',
+            'project_key' => 'DEV',
+            'name' => 'Development',
+        ]);
+        $item = ExternalWorkItem::create([
+            'integration_id' => $jira->id,
+            'workspace_id' => $workspace->id,
+            'jira_project_id' => $project->id,
+            'assignee_integration_user_id' => $jiraUser->id,
+            'provider' => 'jira',
+            'external_id' => '10001',
+            'external_key' => 'DEV-1',
+            'type' => 'jira_issue',
+            'title' => 'Ship Slack Jira picker',
+            'url' => 'https://example.atlassian.net/browse/DEV-1',
+            'status' => 'In Progress',
         ]);
         $schedule = StandupSchedule::create([
             'organization_id' => $organization->id,
@@ -1030,6 +1117,13 @@ class StandupRuntimeTest extends TestCase
                                 'value' => 'Working on the Slack bot flow',
                             ],
                         ],
+                        'work_items_'.$question->id => [
+                            'selected_items' => [
+                                'selected_options' => [
+                                    ['value' => (string) $item->id],
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],
@@ -1052,6 +1146,11 @@ class StandupRuntimeTest extends TestCase
         $this->assertDatabaseHas('standup_answers', [
             'standup_question_id' => $question->id,
             'answer_text' => 'Working on the Slack bot flow',
+        ]);
+        $this->assertDatabaseHas('standup_response_items', [
+            'standup_question_id' => $question->id,
+            'external_work_item_id' => $item->id,
+            'relation' => 'planned',
         ]);
         Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/chat.update'
             && $request['channel'] === 'D123'

@@ -11,12 +11,14 @@ use App\Models\StandupRun;
 use App\Services\ActivityEventService;
 use App\Services\SlackIntegrationService;
 use App\Services\StandupQuestionFlowService;
+use App\Services\StandupResponseSubmissionService;
 use App\Services\StandupRunCompletionService;
 use App\Services\StandupSubmissionFinalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class SlackInteractionController extends Controller
@@ -29,6 +31,7 @@ class SlackInteractionController extends Controller
         ActivityEventService $events,
         StandupQuestionFlowService $questionFlow,
         StandupRunCompletionService $completion,
+        StandupResponseSubmissionService $submission,
     ): JsonResponse|Response {
         $payloadJson = $request->string('payload')->toString();
 
@@ -95,6 +98,7 @@ class SlackInteractionController extends Controller
                     $run,
                     (string) ($payload['channel']['id'] ?? ''),
                     (string) ($payload['message']['ts'] ?? ''),
+                    $integrationUser?->user,
                 );
             }
 
@@ -184,41 +188,46 @@ class SlackInteractionController extends Controller
                 return response()->json(['response_action' => 'clear']);
             }
 
-            $response = $run->responses()->updateOrCreate(
-                ['user_id' => $integrationUser->user_id],
-                [
-                    'organization_id' => $run->organization_id,
-                    'workspace_id' => $run->workspace_id,
-                    'status' => 'submitted',
-                    'submitted_at' => now(),
-                    'source' => 'slack',
-                    'external_message_id' => $payload['view']['id'] ?? null,
-                    'raw_json' => $payload,
-                ],
-            );
-
             $values = $payload['view']['state']['values'] ?? [];
-
+            $answers = [];
+            $workItemsByQuestion = [];
             foreach ($run->template->questions as $question) {
-                $answer = $this->extractSlackAnswerValue($values['question_'.$question->id]['answer'] ?? []);
-
-                $response->answers()->updateOrCreate(
-                    ['standup_question_id' => $question->id],
-                    ['answer_text' => $answer],
+                $answers[$question->id] = $this->extractSlackAnswerValue($values['question_'.$question->id]['answer'] ?? []);
+                $selectedOptions = data_get($values, 'work_items_'.$question->id.'.selected_items.selected_options', []);
+                if (filled($question->work_item_relation) && is_array($selectedOptions) && $selectedOptions !== []) {
+                    $workItemsByQuestion[$question->id] = collect($selectedOptions)
+                        ->pluck('value')
+                        ->filter(fn ($value) => is_numeric($value))
+                        ->map(fn ($value) => (int) $value)
+                        ->values()
+                        ->all();
+                }
+            }
+            try {
+                $response = $submission->submit(
+                    $run,
+                    $integrationUser->user,
+                    $answers,
+                    $workItemsByQuestion,
+                    'slack',
+                    $payload['view']['id'] ?? null,
+                    $payload,
                 );
+            } catch (ValidationException $exception) {
+                $errors = [];
+                foreach ($exception->errors() as $key => $messages) {
+                    if (preg_match('/^(answers|work_items)\.(\d+)/', $key, $matches)) {
+                        $prefix = $matches[1] === 'answers' ? 'question_' : 'work_items_';
+                        $errors[$prefix.$matches[2]] = $messages[0] ?? __('Please check this field.');
+                    }
+                }
+
+                return response()->json([
+                    'response_action' => 'errors',
+                    'errors' => $errors ?: ['question_'.$run->template->questions->first()?->id => $exception->getMessage()],
+                ]);
             }
 
-            $events->record(
-                $run->organization,
-                ActivityEventService::STANDUP_RESPONSE_SUBMITTED,
-                source: 'slack',
-                workspace: $run->workspace,
-                user: $integrationUser->user,
-                subject: $response,
-                externalId: $payload['view']['id'] ?? null,
-            );
-
-            $completion->completeIfAllResponsesSubmitted($run);
             $this->submissionFinalizer->handle($response);
             $this->afterResponse(fn () => $slack->updateStandupPromptAsSubmitted(
                 $integration,
