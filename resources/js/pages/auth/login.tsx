@@ -35,7 +35,7 @@ type RecentLoginUser = {
     role: 'owner' | 'admin' | 'manager' | 'member';
 };
 
-const defaultDevelopmentPassword = 'password';
+const defaultDevelopmentPassword = 'Password-0';
 
 export default function Login({
     status,
