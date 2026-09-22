@@ -69,6 +69,36 @@ function ComboboxInput({
 }
 
 const ComboboxLabel = ComboboxPrimitive.Label;
+const ComboboxCollection = ComboboxPrimitive.Collection;
+
+function ComboboxGroup({
+    className,
+    ...props
+}: React.ComponentProps<typeof ComboboxPrimitive.Group>) {
+    return (
+        <ComboboxPrimitive.Group
+            data-slot="combobox-group"
+            className={cn('pb-1 last:pb-0', className)}
+            {...props}
+        />
+    );
+}
+
+function ComboboxGroupLabel({
+    className,
+    ...props
+}: React.ComponentProps<typeof ComboboxPrimitive.GroupLabel>) {
+    return (
+        <ComboboxPrimitive.GroupLabel
+            data-slot="combobox-group-label"
+            className={cn(
+                'px-2 py-1.5 text-xs font-semibold text-muted-foreground',
+                className,
+            )}
+            {...props}
+        />
+    );
+}
 
 function ComboboxTrigger({
     className,
@@ -243,8 +273,11 @@ export {
     ComboboxChip,
     ComboboxChips,
     ComboboxChipsInput,
+    ComboboxCollection,
     ComboboxContent,
     ComboboxEmpty,
+    ComboboxGroup,
+    ComboboxGroupLabel,
     ComboboxInput,
     ComboboxItem,
     ComboboxLabel,

@@ -50,20 +50,29 @@ class StandupResponseSubmissionService
             ]);
         }
 
-        $allowedItems = $this->suggestions->jiraForUser($user, $run->workspace)->keyBy('id');
+        $submittedItemIds = collect($workItemsByQuestion)
+            ->flatten()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        $allowedItems = $this->suggestions
+            ->eligibleByIdsForUser($user, $run->workspace, $submittedItemIds)
+            ->keyBy('id');
         $selected = [];
         foreach ($workItemsByQuestion as $questionId => $itemIds) {
             $question = $visibleById->get((int) $questionId);
-            if (! $question || blank($question->work_item_relation)) {
+            $allowedProviders = $question->work_item_providers ?? [];
+            if (! $question || blank($question->work_item_relation) || $allowedProviders === []) {
                 throw ValidationException::withMessages([
-                    "work_items.{$questionId}" => __('This question cannot accept Jira tickets.'),
+                    "work_items.{$questionId}" => __('This question cannot accept work items.'),
                 ]);
             }
 
             foreach (array_values(array_unique(array_map('intval', $itemIds))) as $itemId) {
-                if (! $allowedItems->has($itemId)) {
+                if (! $allowedItems->has($itemId) || ! in_array($allowedItems->get($itemId)->provider, $allowedProviders, true)) {
                     throw ValidationException::withMessages([
-                        "work_items.{$questionId}" => __('One or more selected Jira tickets are not available to you.'),
+                        "work_items.{$questionId}" => __('One or more selected work items are not available for this question.'),
                     ]);
                 }
                 $selected[] = [$question, $allowedItems->get($itemId)];
