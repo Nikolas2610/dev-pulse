@@ -171,6 +171,123 @@ class StandupRuntimeTest extends TestCase
         ]);
     }
 
+    public function test_slack_summary_and_late_update_group_work_items_under_their_questions(): void
+    {
+        [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
+        $user->forceFill(['name' => 'Nikolas'])->save();
+        $yesterday = StandupQuestion::factory()->for($template)->create([
+            'question_text' => 'What did you complete yesterday?',
+            'sort_order' => 1,
+        ]);
+        $today = StandupQuestion::factory()->for($template)->create([
+            'question_text' => 'What are you focusing on today?',
+            'sort_order' => 2,
+        ]);
+        $blocker = StandupQuestion::factory()->for($template)->create([
+            'question_text' => 'What are you blocked by?',
+            'sort_order' => 3,
+        ]);
+        $integration = Integration::factory()->for($organization)->for($workspace)->create([
+            'provider' => 'slack',
+            'bot_token' => 'xoxb-summary',
+        ]);
+        $channel = IntegrationChannel::create([
+            'integration_id' => $integration->id,
+            'external_channel_id' => 'C123',
+            'name' => 'standups',
+            'type' => 'public',
+            'is_active' => true,
+        ]);
+        $schedule = StandupSchedule::create([
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'standup_template_id' => $template->id,
+            'name' => 'Daily Focus',
+            'timezone' => 'Asia/Nicosia',
+            'time_of_day' => '08:30:00',
+            'days_of_week' => [1, 2, 3, 4, 5],
+            'target_integration_id' => $integration->id,
+            'target_channel_id' => $channel->id,
+            'is_active' => true,
+            'created_by_user_id' => $user->id,
+        ]);
+        $run = StandupRun::factory()
+            ->for($organization)
+            ->for($workspace)
+            ->for($template)
+            ->create(['standup_schedule_id' => $schedule->id, 'status' => 'active']);
+        $response = $run->responses()->create([
+            'organization_id' => $organization->id,
+            'workspace_id' => $workspace->id,
+            'user_id' => $user->id,
+            'status' => 'submitted',
+            'submitted_at' => now(),
+            'source' => 'web',
+        ]);
+
+        foreach ([
+            [$yesterday, 'Fixed deployment'],
+            [$today, 'Reviewing PRs'],
+            [$blocker, 'Backend issues'],
+        ] as [$question, $answer]) {
+            $response->answers()->create([
+                'standup_question_id' => $question->id,
+                'answer_text' => $answer,
+            ]);
+        }
+
+        foreach ([
+            [$blocker->id, 'jira', 'blocker', 'SCRUM-1', 'Task 1', 'To Do', 'https://example.atlassian.net/browse/SCRUM-1'],
+            [$today->id, 'bitbucket', 'planned', '#17', 'API cleanup', 'OPEN', 'https://bitbucket.org/team/api/pull-requests/17'],
+            [$today->id, 'jira', 'planned', 'SCRUM-2', 'Task 2', 'In Progress', 'https://example.atlassian.net/browse/SCRUM-2'],
+            [null, 'jira', 'planned', 'LEGACY-9', 'Older task', 'Open', 'https://example.atlassian.net/browse/LEGACY-9'],
+        ] as [$questionId, $provider, $relation, $key, $title, $status, $url]) {
+            $response->items()->create([
+                'standup_question_id' => $questionId,
+                'provider' => $provider,
+                'relation' => $relation,
+                'external_key' => $key,
+                'title_snapshot' => $title,
+                'status_snapshot' => $status,
+                'url_snapshot' => $url,
+            ]);
+        }
+
+        Http::fake([
+            'slack.com/api/chat.postMessage' => Http::response(['ok' => true, 'ts' => '123.456']),
+        ]);
+
+        $summaries = app(StandupSummaryService::class);
+        $summaries->postSummary($run);
+        $summaries->postLateAddendum($response);
+
+        $report = implode("\n", [
+            'Here is the report from Nikolas',
+            '',
+            '*What did you complete yesterday*',
+            'Fixed deployment',
+            '',
+            '*What are you focusing on today*',
+            'Reviewing PRs',
+            '- <https://bitbucket.org/team/api/pull-requests/17|#17 API cleanup> · OPEN',
+            '- <https://example.atlassian.net/browse/SCRUM-2|SCRUM-2 Task 2> · In Progress',
+            '',
+            '*What are you blocked by*',
+            'Backend issues',
+            '- <https://example.atlassian.net/browse/SCRUM-1|SCRUM-1 Task 1> · To Do',
+            '',
+            '*Other work items*',
+            '- <https://example.atlassian.net/browse/LEGACY-9|LEGACY-9 Older task> · Open',
+        ]);
+
+        $postedTexts = Http::recorded(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage')
+            ->map(fn (array $record) => $record[0]['text'])
+            ->values()
+            ->all();
+
+        $this->assertSame([$report, '*Late update*'.PHP_EOL.$report], $postedTexts);
+    }
+
     public function test_admin_can_manually_send_latest_schedule_summary(): void
     {
         [$user, $organization, $workspace, $template] = $this->workspaceWithTemplate();
