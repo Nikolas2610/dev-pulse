@@ -268,21 +268,33 @@ class StandupSummaryService
         $memberLabel = $slackUser?->external_user_id
             ? '<@'.$slackUser->external_user_id.'>'
             : $response->user->name;
+        $answers = $response->answers->sortBy(fn ($answer) => $answer->question->sort_order);
+        $itemsByQuestion = $response->items->groupBy('standup_question_id');
         $lines = [
             'Here is the report from '.$memberLabel,
             '',
         ];
 
-        foreach ($response->answers->sortBy(fn ($answer) => $answer->question->sort_order) as $answer) {
+        foreach ($answers as $answer) {
             $lines[] = '*'.$this->slackQuestionLabel($answer->question).'*';
             $lines[] = $answer->answer_text ?: '-';
+
+            foreach ($itemsByQuestion->get($answer->standup_question_id, collect()) as $item) {
+                $lines[] = '- <'.$item->url_snapshot.'|'.($item->external_key ? $item->external_key.' ' : '').$item->title_snapshot.'> · '.$item->status_snapshot;
+            }
+
             $lines[] = '';
         }
 
-        foreach ($response->items as $item) {
-            $lines[] = '*'.ucfirst(str_replace('_', ' ', $item->relation)).'*';
-            $lines[] = '<'.$item->url_snapshot.'|'.($item->external_key ? $item->external_key.' ' : '').$item->title_snapshot.'> · '.$item->status_snapshot;
-            $lines[] = '';
+        $unmatchedItems = $response->items->reject(
+            fn ($item) => $answers->contains('standup_question_id', $item->standup_question_id),
+        );
+
+        if ($unmatchedItems->isNotEmpty()) {
+            $lines[] = '*Other work items*';
+            foreach ($unmatchedItems as $item) {
+                $lines[] = '- <'.$item->url_snapshot.'|'.($item->external_key ? $item->external_key.' ' : '').$item->title_snapshot.'> · '.$item->status_snapshot;
+            }
         }
 
         return trim(implode("\n", $lines));
