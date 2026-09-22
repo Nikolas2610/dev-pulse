@@ -128,6 +128,30 @@ class OnboardingTest extends TestCase
         $this->assertNotNull($organization->refresh()->onboarding_completed_at);
     }
 
+    public function test_onboarding_rejects_work_item_provider_without_active_integration(): void
+    {
+        [$user, , , $template] = $this->onboardingContext();
+        $question = $template->questions->firstOrFail();
+
+        $this->actingAs($user)->from(route('onboarding.index', ['step' => 'template']))
+            ->patch(route('onboarding.template.update'), [
+                'name' => $template->name,
+                'description' => $template->description,
+                'questions' => [[
+                    'id' => $question->id,
+                    'question_text' => $question->question_text,
+                    'question_key' => $question->question_key,
+                    'work_item_relation' => 'worked_on',
+                    'work_item_providers' => ['bitbucket'],
+                    'answer_type' => 'textarea',
+                    'is_required' => true,
+                    'sort_order' => 1,
+                ]],
+            ])
+            ->assertRedirect(route('onboarding.index', ['step' => 'template']))
+            ->assertSessionHasErrors('questions.0.work_item_providers.0');
+    }
+
     /** @return array{User, Organization, Workspace, StandupTemplate} */
     private function onboardingContext(): array
     {

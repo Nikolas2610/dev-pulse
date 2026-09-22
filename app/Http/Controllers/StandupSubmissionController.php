@@ -38,7 +38,7 @@ class StandupSubmissionController extends Controller
 
         return Inertia::render('standup-runs/submit', [
             'run' => $run->load('workspace', 'template.questions'),
-            'suggestedWorkItems' => $suggestions->jiraForUser($request->user(), $run->workspace),
+            'suggestedWorkItems' => $suggestions->forUser($request->user(), $run->workspace),
         ]);
     }
 

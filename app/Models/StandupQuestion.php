@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $question_text
  * @property string|null $question_key
  * @property string|null $work_item_relation
+ * @property array<int, string>|null $work_item_providers
  * @property string $answer_type
  * @property array<int, string>|null $options_json
  * @property bool $is_required
@@ -24,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'question_text',
     'question_key',
     'work_item_relation',
+    'work_item_providers',
     'answer_type',
     'options_json',
     'depends_on_question_id',
@@ -41,6 +43,7 @@ class StandupQuestion extends Model
     {
         return [
             'options_json' => 'array',
+            'work_item_providers' => 'array',
             'is_required' => 'boolean',
         ];
     }

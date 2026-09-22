@@ -9,6 +9,7 @@ use App\Models\StandupQuestion;
 use App\Models\StandupRun;
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -260,7 +261,7 @@ class SlackIntegrationService
     ): void {
         $run->loadMissing('workspace', 'template.questions');
         $workItems = $user
-            ? $this->workItemSuggestions->jiraForUser($user, $run->workspace)
+            ? $this->workItemSuggestions->forUser($user, $run->workspace)
             : collect();
         $blocks = $run->template->questions
             ->sortBy('sort_order')
@@ -277,33 +278,57 @@ class SlackIntegrationService
                     'element' => $this->standupQuestionInputElement($question),
                 ]];
 
-                if (filled($question->work_item_relation) && $workItems->isNotEmpty()) {
+                $questionWorkItems = $this->workItemsForSlackQuestion(
+                    $workItems,
+                    $question->work_item_providers ?? [],
+                );
+
+                if (filled($question->work_item_relation) && $questionWorkItems->isNotEmpty()) {
+                    $optionGroups = collect(['jira' => 'Jira', 'bitbucket' => 'Bitbucket'])
+                        ->map(function (string $label, string $provider) use ($questionWorkItems): ?array {
+                            $items = $questionWorkItems->where('provider', $provider);
+
+                            if ($items->isEmpty()) {
+                                return null;
+                            }
+
+                            return [
+                                'label' => ['type' => 'plain_text', 'text' => $label],
+                                'options' => $items->map(fn ($item) => [
+                                    'text' => [
+                                        'type' => 'plain_text',
+                                        'text' => mb_substr(trim(($item->external_key ? $item->external_key.' · ' : '').$item->title), 0, 75),
+                                    ],
+                                    'description' => [
+                                        'type' => 'plain_text',
+                                        'text' => mb_substr(trim($provider === 'jira'
+                                            ? (($item->jiraProject?->name ? $item->jiraProject->name.' · ' : '').$item->status)
+                                            : (($item->bitbucketRepository?->full_name ? $item->bitbucketRepository->full_name.' · ' : '').$item->status)), 0, 75),
+                                    ],
+                                    'value' => (string) $item->id,
+                                ])->values()->all(),
+                            ];
+                        })
+                        ->filter()
+                        ->values()
+                        ->all();
+
                     $questionBlocks[] = [
                         'type' => 'input',
                         'block_id' => 'work_items_'.$question->id,
                         'optional' => true,
                         'label' => [
                             'type' => 'plain_text',
-                            'text' => 'Jira tickets',
+                            'text' => 'Work items',
                         ],
                         'element' => [
                             'type' => 'multi_static_select',
                             'action_id' => 'selected_items',
                             'placeholder' => [
                                 'type' => 'plain_text',
-                                'text' => 'Select Jira tickets',
+                                'text' => 'Select work items',
                             ],
-                            'options' => $workItems->take(100)->map(fn ($item) => [
-                                'text' => [
-                                    'type' => 'plain_text',
-                                    'text' => mb_substr(trim(($item->external_key ? $item->external_key.' · ' : '').$item->title), 0, 75),
-                                ],
-                                'description' => [
-                                    'type' => 'plain_text',
-                                    'text' => mb_substr(trim(($item->jiraProject?->name ? $item->jiraProject->name.' · ' : '').$item->status), 0, 75),
-                                ],
-                                'value' => (string) $item->id,
-                            ])->values()->all(),
+                            'option_groups' => $optionGroups,
                         ],
                     ];
                 }
@@ -341,6 +366,47 @@ class SlackIntegrationService
         ]);
 
         $this->ensureSlackOk($payload, 'views.open', $integration);
+    }
+
+    /** @param Collection<int, mixed> $workItems
+     * @param  array<int, string>  $providers
+     * @return Collection<int, mixed>
+     */
+    private function workItemsForSlackQuestion(Collection $workItems, array $providers): Collection
+    {
+        $enabledProviders = collect(['jira', 'bitbucket'])
+            ->filter(fn (string $provider) => in_array($provider, $providers, true))
+            ->values();
+
+        if ($enabledProviders->isEmpty()) {
+            return collect();
+        }
+
+        $quota = intdiv(100, $enabledProviders->count());
+        $selected = collect();
+
+        foreach ($enabledProviders as $provider) {
+            $selected = $selected->concat(
+                $workItems->where('provider', $provider)->take($quota),
+            );
+        }
+
+        $remaining = 100 - $selected->count();
+        foreach ($enabledProviders as $provider) {
+            if ($remaining === 0) {
+                break;
+            }
+
+            $selectedForProvider = $selected->where('provider', $provider)->count();
+            $additional = $workItems
+                ->where('provider', $provider)
+                ->skip($selectedForProvider)
+                ->take($remaining);
+            $selected = $selected->concat($additional);
+            $remaining = 100 - $selected->count();
+        }
+
+        return $selected->take(100)->values();
     }
 
     public function openSkipStandupModal(

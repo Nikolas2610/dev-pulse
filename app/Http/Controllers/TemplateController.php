@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\StandupQuestion;
 use App\Models\StandupTemplate;
 use App\Services\CurrentOrganization;
+use App\Services\WorkItemProviderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,6 +16,8 @@ use Inertia\Response;
 
 class TemplateController extends Controller
 {
+    public function __construct(private readonly WorkItemProviderService $workItemProviders) {}
+
     public function index(Request $request, CurrentOrganization $currentOrganization): Response
     {
         $organization = $currentOrganization->fromRequest($request);
@@ -38,6 +41,7 @@ class TemplateController extends Controller
 
         return Inertia::render('templates/create', [
             'workspaces' => $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->map->only(['id', 'name'])->values(),
+            'availableWorkItemProviders' => $this->workItemProviders->availableForOrganization($organization),
             'canManageTemplates' => true,
         ]);
     }
@@ -58,6 +62,8 @@ class TemplateController extends Controller
             'questions.*.question_text' => ['required', 'string'],
             'questions.*.question_key' => ['nullable', 'string', 'max:255'],
             'questions.*.work_item_relation' => ['nullable', 'string', 'in:worked_on,planned,blocker,review'],
+            'questions.*.work_item_providers' => ['nullable', 'array', 'max:2'],
+            'questions.*.work_item_providers.*' => ['string', 'distinct', 'in:jira,bitbucket'],
             'questions.*.answer_type' => ['required', 'string', 'in:text,textarea,boolean,select,multi_select,number'],
             'questions.*.options_json' => ['nullable', 'array'],
             'questions.*.depends_on_question_id' => ['nullable', 'integer'],
@@ -68,6 +74,7 @@ class TemplateController extends Controller
             'questions.*.sort_order' => ['required', 'integer', 'min:1'],
         ]);
         $validatedQuestions = $this->normalizeQuestionOptions(is_array($validated['questions'] ?? null) ? $validated['questions'] : []);
+        $this->workItemProviders->validateQuestions($validatedQuestions, $organization);
         $this->authorizeWorkspaceSelection(
             $validated['workspace_id'] ?? null,
             $organization,
@@ -92,6 +99,7 @@ class TemplateController extends Controller
                 'question_text' => $question['question_text'],
                 'question_key' => $question['question_key'] ?? null,
                 'work_item_relation' => $question['work_item_relation'] ?? null,
+                'work_item_providers' => $question['work_item_providers'] ?? null,
                 'answer_type' => $question['answer_type'],
                 'options_json' => $question['options_json'] ?? null,
                 'is_required' => (bool) ($question['is_required'] ?? true),
@@ -116,6 +124,7 @@ class TemplateController extends Controller
         return Inertia::render('templates/edit', [
             'template' => $template->load('questions'),
             'workspaces' => $currentOrganization->manageableWorkspacesForUser($organization, $request->user())->map->only(['id', 'name'])->values(),
+            'availableWorkItemProviders' => $this->workItemProviders->availableForOrganization($organization),
             'canManageTemplates' => true,
         ]);
     }
@@ -136,6 +145,8 @@ class TemplateController extends Controller
             'questions.*.question_text' => ['required', 'string'],
             'questions.*.question_key' => ['nullable', 'string', 'max:255'],
             'questions.*.work_item_relation' => ['nullable', 'string', 'in:worked_on,planned,blocker,review'],
+            'questions.*.work_item_providers' => ['nullable', 'array', 'max:2'],
+            'questions.*.work_item_providers.*' => ['string', 'distinct', 'in:jira,bitbucket'],
             'questions.*.answer_type' => ['required', 'string', 'in:text,textarea,boolean,select,multi_select,number'],
             'questions.*.options_json' => ['nullable', 'array'],
             'questions.*.depends_on_question_id' => ['nullable', 'integer'],
@@ -146,6 +157,7 @@ class TemplateController extends Controller
             'questions.*.sort_order' => ['required', 'integer', 'min:1'],
         ]);
         $validatedQuestions = $this->normalizeQuestionOptions(is_array($validated['questions'] ?? null) ? $validated['questions'] : []);
+        $this->workItemProviders->validateQuestions($validatedQuestions, $organization, $template);
 
         $template->update([
             'name' => $validated['name'],
@@ -166,6 +178,7 @@ class TemplateController extends Controller
                     'question_text' => $question['question_text'],
                     'question_key' => $question['question_key'] ?? null,
                     'work_item_relation' => $question['work_item_relation'] ?? null,
+                    'work_item_providers' => $question['work_item_providers'] ?? null,
                     'answer_type' => $question['answer_type'],
                     'options_json' => $question['options_json'] ?? null,
                     'is_required' => (bool) ($question['is_required'] ?? true),
@@ -216,6 +229,9 @@ class TemplateController extends Controller
             }
 
             $questions[$index]['options_json'] = $options === [] ? null : $options;
+            $questions[$index]['work_item_providers'] = $this->workItemProviders->normalize(
+                is_array($question['work_item_providers'] ?? null) ? $question['work_item_providers'] : null,
+            );
         }
 
         if ($errors !== []) {

@@ -12,6 +12,7 @@ use App\Models\Workspace;
 use App\Notifications\TeamInvitationNotification;
 use App\Services\CurrentOrganization;
 use App\Services\StandupReminderMessageService;
+use App\Services\WorkItemProviderService;
 use App\Support\TimezoneRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,8 @@ use Inertia\Response;
 class OnboardingController extends Controller
 {
     private const STEPS = ['organization', 'integrations', 'members', 'template', 'schedule', 'complete'];
+
+    public function __construct(private readonly WorkItemProviderService $workItemProviders) {}
 
     public function index(Request $request, CurrentOrganization $currentOrganization): Response|RedirectResponse
     {
@@ -82,6 +85,9 @@ class OnboardingController extends Controller
                     && filled($integration->client_secret),
                 'channels' => $integration->channels,
             ])->values(),
+            'availableWorkItemProviders' => $organization
+                ? $this->workItemProviders->availableForOrganization($organization)
+                : [],
             'membersCount' => $organization?->users()->count() ?? 0,
             'slackConfiguredGlobally' => filled(config('services.slack.client_id'))
                 && filled(config('services.slack.client_secret')),
@@ -280,6 +286,8 @@ class OnboardingController extends Controller
             'questions.*.question_text' => ['required', 'string'],
             'questions.*.question_key' => ['nullable', 'string', 'max:255'],
             'questions.*.work_item_relation' => ['nullable', 'string', 'in:worked_on,planned,blocker,review'],
+            'questions.*.work_item_providers' => ['nullable', 'array', 'max:2'],
+            'questions.*.work_item_providers.*' => ['string', 'distinct', 'in:jira,bitbucket'],
             'questions.*.answer_type' => ['required', 'string', 'in:text,textarea,boolean,select,multi_select,number'],
             'questions.*.options_json' => ['nullable', 'array'],
             'questions.*.depends_on_question_id' => ['nullable', 'integer'],
@@ -290,6 +298,7 @@ class OnboardingController extends Controller
             'questions.*.sort_order' => ['required', 'integer', 'min:1'],
         ]);
         $questions = $this->normalizeQuestionOptions($validated['questions']);
+        $this->workItemProviders->validateQuestions($questions, $organization, $template);
 
         DB::transaction(function () use ($template, $validated, $questions): void {
             $template->update([
@@ -307,6 +316,7 @@ class OnboardingController extends Controller
                         'question_text' => $question['question_text'],
                         'question_key' => $question['question_key'] ?? null,
                         'work_item_relation' => $question['work_item_relation'] ?? null,
+                        'work_item_providers' => $question['work_item_providers'] ?? null,
                         'answer_type' => $question['answer_type'],
                         'options_json' => $question['options_json'] ?? null,
                         'is_required' => (bool) ($question['is_required'] ?? true),
@@ -560,7 +570,7 @@ class OnboardingController extends Controller
             ...$template->only(['id', 'name', 'description']),
             'questions' => $questions->map(fn (StandupQuestion $question) => [
                 ...Arr::only($question->toArray(), [
-                    'id', 'question_text', 'question_key', 'work_item_relation', 'answer_type', 'options_json',
+                    'id', 'question_text', 'question_key', 'work_item_relation', 'work_item_providers', 'answer_type', 'options_json',
                     'depends_on_question_id', 'depends_on_operator', 'depends_on_value', 'is_required', 'sort_order',
                 ]),
                 'depends_on_question_index' => $question->depends_on_question_id
@@ -597,6 +607,9 @@ class OnboardingController extends Controller
             }
 
             $questions[$index]['options_json'] = $options === [] ? null : $options;
+            $questions[$index]['work_item_providers'] = $this->workItemProviders->normalize(
+                is_array($question['work_item_providers'] ?? null) ? $question['work_item_providers'] : null,
+            );
         }
 
         if ($errors !== []) {
