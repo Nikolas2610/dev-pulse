@@ -1,3 +1,4 @@
+import { Tabs } from '@base-ui/react/tabs';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
 import {
@@ -128,101 +129,162 @@ export default function AtlassianIntegration({
                                 {integration.settings.webhook_error}
                             </div>
                         )}
-                        <ConnectionScope
-                            provider={provider}
-                            integration={integration}
-                            availableConnections={availableConnections}
-                        />
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Workspace resources</CardTitle>
-                                <CardDescription>
-                                    Select the Jira projects or repositories
-                                    available to each DevPulse workspace.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-5">
-                                {workspaces.map((workspace) => (
-                                    <ResourceAssignment
-                                        key={workspace.id}
-                                        provider={provider}
-                                        integrationId={integration.id}
-                                        workspace={workspace}
-                                        resources={resources}
-                                    />
-                                ))}
-                            </CardContent>
-                        </Card>
-                        {provider === 'bitbucket' && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Repository ownership</CardTitle>
-                                    <CardDescription>
-                                        Assign repositories to the developers
-                                        who should see their pull requests.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex flex-col gap-4">
-                                    {resources.map((repository) => (
-                                        <RepositoryUsers
-                                            key={repository.id}
-                                            integrationId={integration.id}
-                                            repository={repository}
-                                            users={workspaces
-                                                .flatMap(
-                                                    (workspace) =>
-                                                        workspace.users ?? [],
-                                                )
-                                                .filter(
-                                                    (user, index, all) =>
-                                                        all.findIndex(
-                                                            (candidate) =>
-                                                                candidate.id ===
-                                                                user.id,
-                                                        ) === index,
-                                                )}
-                                        />
-                                    ))}
-                                </CardContent>
-                            </Card>
-                        )}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Identity mapping</CardTitle>
-                                <CardDescription>
-                                    Email matches are automatic. Use this list
-                                    when Jira hides emails or Bitbucket accounts
-                                    differ.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-3">
-                                {externalUsers.map((externalUser) => (
-                                    <UserMapping
-                                        key={externalUser.id}
-                                        provider={provider}
-                                        integrationId={integration.id}
-                                        externalUser={externalUser}
-                                        users={workspaces
-                                            .flatMap(
-                                                (workspace) =>
-                                                    workspace.users ?? [],
-                                            )
-                                            .filter(
-                                                (user, index, all) =>
-                                                    all.findIndex(
-                                                        (candidate) =>
-                                                            candidate.id ===
-                                                            user.id,
-                                                    ) === index,
-                                            )}
-                                    />
-                                ))}
-                            </CardContent>
-                        </Card>
+                        <Tabs.Root
+                            defaultValue="connection"
+                            className="space-y-5"
+                        >
+                            <Tabs.List className="flex flex-wrap gap-2 border-b border-border/70 pb-3">
+                                <IntegrationTab value="connection">
+                                    Connection
+                                </IntegrationTab>
+                                <IntegrationTab value="resources">
+                                    {provider === 'jira'
+                                        ? 'Projects'
+                                        : 'Repositories'}
+                                </IntegrationTab>
+                                <IntegrationTab value="people">
+                                    People
+                                </IntegrationTab>
+                            </Tabs.List>
+                            <Tabs.Panel value="connection" keepMounted>
+                                <ConnectionScope
+                                    provider={provider}
+                                    integration={integration}
+                                    availableConnections={availableConnections}
+                                />
+                            </Tabs.Panel>
+                            <Tabs.Panel
+                                value="resources"
+                                keepMounted
+                                className="space-y-5"
+                            >
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>
+                                            Workspace resources
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Select the Jira projects or
+                                            repositories available to each
+                                            DevPulse workspace.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col gap-5">
+                                        {workspaces.map((workspace) => (
+                                            <ResourceAssignment
+                                                key={workspace.id}
+                                                provider={provider}
+                                                integrationId={integration.id}
+                                                workspace={workspace}
+                                                resources={resources}
+                                            />
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                                {provider === 'bitbucket' && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>
+                                                Repository ownership
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Assign repositories to the
+                                                developers who should see their
+                                                pull requests.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="flex flex-col gap-4">
+                                            {resources.map((repository) => (
+                                                <RepositoryUsers
+                                                    key={repository.id}
+                                                    integrationId={
+                                                        integration.id
+                                                    }
+                                                    repository={repository}
+                                                    users={workspaces
+                                                        .flatMap(
+                                                            (workspace) =>
+                                                                workspace.users ??
+                                                                [],
+                                                        )
+                                                        .filter(
+                                                            (
+                                                                user,
+                                                                index,
+                                                                all,
+                                                            ) =>
+                                                                all.findIndex(
+                                                                    (
+                                                                        candidate,
+                                                                    ) =>
+                                                                        candidate.id ===
+                                                                        user.id,
+                                                                ) === index,
+                                                        )}
+                                                />
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </Tabs.Panel>
+                            <Tabs.Panel value="people" keepMounted>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Identity mapping</CardTitle>
+                                        <CardDescription>
+                                            Email matches are automatic. Use
+                                            this list when Jira hides emails or
+                                            Bitbucket accounts differ.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col gap-3">
+                                        {externalUsers.map((externalUser) => (
+                                            <UserMapping
+                                                key={externalUser.id}
+                                                provider={provider}
+                                                integrationId={integration.id}
+                                                externalUser={externalUser}
+                                                users={workspaces
+                                                    .flatMap(
+                                                        (workspace) =>
+                                                            workspace.users ??
+                                                            [],
+                                                    )
+                                                    .filter(
+                                                        (user, index, all) =>
+                                                            all.findIndex(
+                                                                (candidate) =>
+                                                                    candidate.id ===
+                                                                    user.id,
+                                                            ) === index,
+                                                    )}
+                                            />
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            </Tabs.Panel>
+                        </Tabs.Root>
                     </>
                 )}
             </div>
         </>
+    );
+}
+
+function IntegrationTab({
+    value,
+    children,
+}: {
+    value: string;
+    children: string;
+}) {
+    return (
+        <Tabs.Tab
+            value={value}
+            className="rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[active]:border-primary data-[active]:bg-primary data-[active]:text-primary-foreground"
+        >
+            {children}
+        </Tabs.Tab>
     );
 }
 
