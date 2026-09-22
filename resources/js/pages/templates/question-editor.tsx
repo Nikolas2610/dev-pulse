@@ -12,6 +12,7 @@ export type TemplateQuestionForm = {
     question_text: string;
     question_key: string;
     work_item_relation?: string | null;
+    work_item_providers?: Array<'jira' | 'bitbucket'> | null;
     answer_type: string;
     options_json?: string[] | null;
     depends_on_question_id?: number | null;
@@ -25,9 +26,14 @@ export type TemplateQuestionForm = {
 type QuestionEditorProps = {
     questions: TemplateQuestionForm[];
     onChange: (questions: TemplateQuestionForm[]) => void;
+    availableWorkItemProviders?: Array<'jira' | 'bitbucket'>;
 };
 
-export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
+export function QuestionEditor({
+    questions,
+    onChange,
+    availableWorkItemProviders = [],
+}: QuestionEditorProps) {
     const setQuestion = (
         index: number,
         field: keyof TemplateQuestionForm,
@@ -54,6 +60,7 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                 question_text: '',
                 question_key: '',
                 work_item_relation: null,
+                work_item_providers: [],
                 answer_type: 'textarea',
                 options_json: null,
                 depends_on_question_id: null,
@@ -126,6 +133,23 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
         );
     };
 
+    const toggleWorkItemProvider = (
+        questionIndex: number,
+        provider: 'jira' | 'bitbucket',
+        checked: boolean,
+    ) => {
+        const providers = questions[questionIndex].work_item_providers ?? [];
+        const nextProviders = checked
+            ? [...new Set([...providers, provider])]
+            : providers.filter((value) => value !== provider);
+
+        setQuestion(
+            questionIndex,
+            'work_item_providers',
+            nextProviders as Array<'jira' | 'bitbucket'>,
+        );
+    };
+
     const reportingKeyOptions = [
         { label: 'Yesterday', value: 'yesterday' },
         { label: 'Today', value: 'today' },
@@ -145,7 +169,7 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
     ];
 
     const workItemRelationOptions = [
-        { label: 'No Jira ticket selector', value: '' },
+        { label: 'No work item selector', value: '' },
         { label: 'Worked on yesterday', value: 'worked_on' },
         { label: 'Planned for today', value: 'planned' },
         { label: 'Blocking work', value: 'blocker' },
@@ -241,17 +265,77 @@ export function QuestionEditor({ questions, onChange }: QuestionEditorProps) {
                             </div>
 
                             <FormSelect
-                                label="Jira ticket selector"
+                                label="Work item category"
                                 value={question.work_item_relation ?? ''}
-                                onChange={(event) =>
-                                    setQuestion(
-                                        index,
-                                        'work_item_relation',
-                                        event.target.value || null,
-                                    )
-                                }
+                                onChange={(event) => {
+                                    const relation = event.target.value || null;
+
+                                    setQuestionFields(index, {
+                                        work_item_relation: relation,
+                                        work_item_providers: relation
+                                            ? (question.work_item_providers ??
+                                              [])
+                                            : [],
+                                    });
+                                }}
                                 options={workItemRelationOptions}
                             />
+
+                            {question.work_item_relation && (
+                                <fieldset className="space-y-2">
+                                    <div>
+                                        <Label>Work item sources</Label>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Members will see items only from
+                                            connected integrations selected
+                                            here.
+                                        </p>
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        {(
+                                            [
+                                                ['jira', 'Jira issues'],
+                                                [
+                                                    'bitbucket',
+                                                    'Bitbucket pull requests',
+                                                ],
+                                            ] as const
+                                        ).map(([provider, label]) => {
+                                            const checked = (
+                                                question.work_item_providers ??
+                                                []
+                                            ).includes(provider);
+                                            const connected =
+                                                availableWorkItemProviders.includes(
+                                                    provider,
+                                                );
+
+                                            return (
+                                                <FormCheckbox
+                                                    key={provider}
+                                                    label={label}
+                                                    checked={checked}
+                                                    disabled={!connected}
+                                                    description={
+                                                        connected
+                                                            ? 'Available for this organization.'
+                                                            : checked
+                                                              ? 'Integration disconnected. This setting is preserved.'
+                                                              : `Connect ${provider === 'jira' ? 'Jira' : 'Bitbucket'} to enable it.`
+                                                    }
+                                                    onCheckedChange={(value) =>
+                                                        toggleWorkItemProvider(
+                                                            index,
+                                                            provider,
+                                                            value,
+                                                        )
+                                                    }
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </fieldset>
+                            )}
 
                             {['select', 'multi_select'].includes(
                                 question.answer_type,

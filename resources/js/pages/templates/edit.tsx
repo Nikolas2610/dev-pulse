@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button';
 import { QuestionEditor } from '@/pages/templates/question-editor';
 import type { TemplateQuestionForm } from '@/pages/templates/question-editor';
 
-export default function TemplatesEdit({ template }: { template: any }) {
+export default function TemplatesEdit({
+    template,
+    availableWorkItemProviders,
+}: {
+    template: any;
+    availableWorkItemProviders: Array<'jira' | 'bitbucket'>;
+}) {
     const templateQuestions = template.questions ?? [];
     const questionIndexById = Object.fromEntries(
         templateQuestions.map((question: any, index: number) => [
@@ -22,6 +28,7 @@ export default function TemplatesEdit({ template }: { template: any }) {
             question_text: question.question_text,
             question_key: question.question_key ?? '',
             work_item_relation: question.work_item_relation ?? null,
+            work_item_providers: question.work_item_providers ?? [],
             answer_type: question.answer_type ?? 'textarea',
             options_json: question.options_json ?? null,
             depends_on_question_id: question.depends_on_question_id ?? null,
@@ -136,6 +143,9 @@ export default function TemplatesEdit({ template }: { template: any }) {
                                 }
                                 onChange={(questions) =>
                                     setData('questions', questions)
+                                }
+                                availableWorkItemProviders={
+                                    availableWorkItemProviders
                                 }
                             />
                         </div>
