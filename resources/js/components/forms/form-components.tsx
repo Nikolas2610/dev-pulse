@@ -14,8 +14,11 @@ import {
     ComboboxChip,
     ComboboxChips,
     ComboboxChipsInput,
+    ComboboxCollection,
     ComboboxContent,
     ComboboxEmpty,
+    ComboboxGroup,
+    ComboboxGroupLabel,
     ComboboxInput,
     ComboboxItem,
     ComboboxLabel,
@@ -31,6 +34,12 @@ type Option = {
     label: string;
     value: string | number;
     disabled?: boolean;
+    group?: string;
+};
+
+type OptionGroup = {
+    value: string;
+    items: Option[];
 };
 
 const fallbackTimezones = [
@@ -404,6 +413,21 @@ export function FormMultiSelect({
     const selectedOptions = options.filter((option) =>
         value.some((selected) => String(selected) === String(option.value)),
     );
+    const groupedOptions = Array.from(
+        options.reduce((groups, option) => {
+            if (!option.group) {
+                return groups;
+            }
+
+            groups.set(option.group, [
+                ...(groups.get(option.group) ?? []),
+                option,
+            ]);
+
+            return groups;
+        }, new Map<string, Option[]>()),
+    ).map(([group, items]): OptionGroup => ({ value: group, items }));
+    const hasGroups = groupedOptions.length > 0;
     const describedBy = [
         description ? fieldDescriptionId(id) : null,
         error ? fieldMessageId(id) : null,
@@ -422,7 +446,7 @@ export function FormMultiSelect({
                 {label}
             </Label>
             <Combobox
-                items={options}
+                items={hasGroups ? groupedOptions : options}
                 multiple
                 value={selectedOptions}
                 onValueChange={(selected) =>
@@ -458,15 +482,37 @@ export function FormMultiSelect({
                 <ComboboxContent>
                     <ComboboxEmpty>No options found.</ComboboxEmpty>
                     <ComboboxList>
-                        {(option: Option) => (
-                            <ComboboxItem
-                                key={String(option.value)}
-                                value={option}
-                                disabled={option.disabled}
-                            >
-                                {option.label}
-                            </ComboboxItem>
-                        )}
+                        {hasGroups
+                            ? (group: OptionGroup) => (
+                                  <ComboboxGroup
+                                      key={group.value}
+                                      items={group.items}
+                                  >
+                                      <ComboboxGroupLabel>
+                                          {group.value}
+                                      </ComboboxGroupLabel>
+                                      <ComboboxCollection>
+                                          {(option: Option) => (
+                                              <ComboboxItem
+                                                  key={String(option.value)}
+                                                  value={option}
+                                                  disabled={option.disabled}
+                                              >
+                                                  {option.label}
+                                              </ComboboxItem>
+                                          )}
+                                      </ComboboxCollection>
+                                  </ComboboxGroup>
+                              )
+                            : (option: Option) => (
+                                  <ComboboxItem
+                                      key={String(option.value)}
+                                      value={option}
+                                      disabled={option.disabled}
+                                  >
+                                      {option.label}
+                                  </ComboboxItem>
+                              )}
                     </ComboboxList>
                 </ComboboxContent>
             </Combobox>
