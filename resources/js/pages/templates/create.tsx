@@ -17,8 +17,10 @@ type Workspace = {
 
 export default function TemplatesCreate({
     workspaces,
+    availableWorkItemProviders,
 }: {
     workspaces: Workspace[];
+    availableWorkItemProviders: Array<'jira' | 'bitbucket'>;
 }) {
     const canManageOrganization =
         usePage().props.access.capabilities.manageOrganization;
@@ -155,6 +157,9 @@ export default function TemplatesCreate({
                                 }
                                 onChange={(questions) =>
                                     setData('questions', questions)
+                                }
+                                availableWorkItemProviders={
+                                    availableWorkItemProviders
                                 }
                             />
                         </div>

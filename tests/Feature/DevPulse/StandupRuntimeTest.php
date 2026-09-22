@@ -4,6 +4,7 @@ namespace Tests\Feature\DevPulse;
 
 use App\Jobs\GenerateStandupRunsJob;
 use App\Jobs\PostStandupSummaryJob;
+use App\Models\BitbucketRepository;
 use App\Models\ExternalWorkItem;
 use App\Models\Integration;
 use App\Models\IntegrationChannel;
@@ -935,6 +936,7 @@ class StandupRuntimeTest extends TestCase
         $question = StandupQuestion::factory()->for($template)->create([
             'question_text' => 'What are you focusing on today?',
             'work_item_relation' => 'planned',
+            'work_item_providers' => ['jira', 'bitbucket'],
         ]);
         $integration = Integration::factory()->for($organization)->for($workspace)->create([
             'provider' => 'slack',
@@ -975,6 +977,49 @@ class StandupRuntimeTest extends TestCase
             'title' => 'Ship Slack Jira picker',
             'url' => 'https://example.atlassian.net/browse/DEV-1',
             'status' => 'In Progress',
+        ]);
+        foreach (range(2, 101) as $index) {
+            ExternalWorkItem::create([
+                'integration_id' => $jira->id,
+                'workspace_id' => $workspace->id,
+                'jira_project_id' => $project->id,
+                'assignee_integration_user_id' => $jiraUser->id,
+                'provider' => 'jira',
+                'external_id' => (string) (10000 + $index),
+                'external_key' => 'DEV-'.$index,
+                'type' => 'jira_issue',
+                'title' => 'Additional Jira item '.$index,
+                'url' => 'https://example.atlassian.net/browse/DEV-'.$index,
+                'status' => 'In Progress',
+                'provider_updated_at' => now()->addMinutes($index),
+            ]);
+        }
+        $bitbucket = Integration::factory()->for($organization)->create([
+            'workspace_id' => null,
+            'provider' => 'bitbucket',
+        ]);
+        $repository = BitbucketRepository::create([
+            'integration_id' => $bitbucket->id,
+            'workspace_uuid' => 'workspace-uuid',
+            'workspace_slug' => 'workspace',
+            'repository_uuid' => 'repository-uuid',
+            'repository_slug' => 'dev-pulse',
+            'full_name' => 'acme/dev-pulse',
+            'is_active' => true,
+        ]);
+        $workspace->bitbucketRepositories()->attach($repository);
+        $repository->users()->attach($user);
+        ExternalWorkItem::create([
+            'integration_id' => $bitbucket->id,
+            'workspace_id' => $workspace->id,
+            'bitbucket_repository_id' => $repository->id,
+            'provider' => 'bitbucket',
+            'external_id' => '42@repository-uuid',
+            'external_key' => '#42',
+            'type' => 'pull_request',
+            'title' => 'Review grouped picker',
+            'url' => 'https://bitbucket.org/acme/dev-pulse/pull-requests/42',
+            'status' => 'OPEN',
         ]);
         $schedule = StandupSchedule::create([
             'organization_id' => $organization->id,
@@ -1020,7 +1065,10 @@ class StandupRuntimeTest extends TestCase
             && $request['view']['callback_id'] === 'devpulse_standup_submission'
             && collect($request['view']['blocks'])->contains(fn (array $block) => ($block['block_id'] ?? null) === 'work_items_'.$question->id
                 && data_get($block, 'element.type') === 'multi_static_select'
-                && data_get($block, 'element.options.0.value') !== null));
+                && data_get($block, 'element.options') === null
+                && collect(data_get($block, 'element.option_groups', []))->pluck('label.text')->all() === ['Jira', 'Bitbucket']
+                && collect(data_get($block, 'element.option_groups', []))->flatMap(fn (array $group) => $group['options'])->count() <= 100
+                && collect(data_get($block, 'element.option_groups', []))->firstWhere('label.text', 'Bitbucket')['options'][0]['value'] !== null));
     }
 
     public function test_slack_modal_submission_stores_standup_answers(): void
@@ -1030,6 +1078,7 @@ class StandupRuntimeTest extends TestCase
         $question = StandupQuestion::factory()->for($template)->create([
             'question_text' => 'What are you focusing on today?',
             'work_item_relation' => 'planned',
+            'work_item_providers' => ['jira'],
         ]);
         $integration = Integration::factory()->for($organization)->for($workspace)->create([
             'provider' => 'slack',

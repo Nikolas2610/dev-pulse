@@ -70,6 +70,14 @@ export default function StandupSubmit({
         });
     };
 
+    const workItemsForQuestion = (question: any) => {
+        const providers = question.work_item_providers ?? [];
+
+        return suggestedWorkItems.filter((item) =>
+            providers.includes(item.provider),
+        );
+    };
+
     return (
         <>
             <Head title="Submit standup" />
@@ -266,10 +274,11 @@ export default function StandupSubmit({
                                         </p>
                                     )}
                                     {question.work_item_relation &&
-                                        suggestedWorkItems.length > 0 && (
+                                        workItemsForQuestion(question).length >
+                                            0 && (
                                             <div className="rounded-lg border bg-muted/20 p-3">
                                                 <FormMultiSelect
-                                                    label="Jira tickets"
+                                                    label="Work items"
                                                     value={
                                                         (
                                                             data.work_items as Record<
@@ -284,13 +293,18 @@ export default function StandupSubmit({
                                                             value,
                                                         )
                                                     }
-                                                    options={suggestedWorkItems.map(
-                                                        (item) => ({
-                                                            value: item.id,
-                                                            label: `${item.external_key ?? 'Jira'} · ${item.title} · ${item.status}`,
-                                                        }),
-                                                    )}
-                                                    description="Select every ticket that belongs to this answer. You can still add context in the text field above."
+                                                    options={workItemsForQuestion(
+                                                        question,
+                                                    ).map((item) => ({
+                                                        value: item.id,
+                                                        label: `${item.external_key ?? (item.provider === 'jira' ? 'Jira' : 'Bitbucket')} · ${item.title} · ${item.status}`,
+                                                        group:
+                                                            item.provider ===
+                                                            'jira'
+                                                                ? 'Jira'
+                                                                : 'Bitbucket',
+                                                    }))}
+                                                    description="Select every Jira issue or Bitbucket pull request that belongs to this answer. You can still add context in the text field above."
                                                     error={
                                                         formErrors[
                                                             `work_items.${question.id}`

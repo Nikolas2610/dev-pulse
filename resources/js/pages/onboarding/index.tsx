@@ -49,6 +49,7 @@ type Props = {
     workspace: Workspace | null;
     template: Template | null;
     integrations: Integration[];
+    availableWorkItemProviders: Array<'jira' | 'bitbucket'>;
     membersCount: number;
     slackConfiguredGlobally: boolean;
 };
@@ -602,7 +603,13 @@ function MembersStep({ membersCount }: Pick<Props, 'membersCount'>) {
     );
 }
 
-function TemplateStep({ template }: { template: Template }) {
+function TemplateStep({
+    template,
+    availableWorkItemProviders,
+}: {
+    template: Template;
+    availableWorkItemProviders: Array<'jira' | 'bitbucket'>;
+}) {
     const { data, setData, patch, processing, errors } = useForm({
         name: template.name,
         description: template.description ?? '',
@@ -653,6 +660,7 @@ function TemplateStep({ template }: { template: Template }) {
                 <Panel className="overflow-hidden">
                     <QuestionEditor
                         questions={data.questions}
+                        availableWorkItemProviders={availableWorkItemProviders}
                         onChange={(questions) =>
                             setData('questions', questions)
                         }
@@ -919,7 +927,12 @@ export default function OnboardingIndex(props: Props) {
             return <MembersStep membersCount={props.membersCount} />;
         case 'template':
             return props.template ? (
-                <TemplateStep template={props.template} />
+                <TemplateStep
+                    template={props.template}
+                    availableWorkItemProviders={
+                        props.availableWorkItemProviders
+                    }
+                />
             ) : (
                 <OrganizationStep
                     organization={props.organization}
