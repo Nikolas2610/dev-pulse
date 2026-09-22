@@ -62,7 +62,7 @@ class StandupResponseSubmissionService
         $selected = [];
         foreach ($workItemsByQuestion as $questionId => $itemIds) {
             $question = $visibleById->get((int) $questionId);
-            $allowedProviders = $question?->work_item_providers ?? [];
+            $allowedProviders = $question->work_item_providers ?? [];
             if (! $question || blank($question->work_item_relation) || $allowedProviders === []) {
                 throw ValidationException::withMessages([
                     "work_items.{$questionId}" => __('This question cannot accept work items.'),

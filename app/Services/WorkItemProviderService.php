@@ -55,7 +55,7 @@ class WorkItemProviderService
 
         foreach ($questions as $questionIndex => $question) {
             $existingProviders = ! empty($question['id'])
-                ? ($existing->get((int) $question['id'])?->work_item_providers ?? [])
+                ? ($existing->get((int) $question['id'])->work_item_providers ?? [])
                 : [];
 
             foreach (($question['work_item_providers'] ?? []) as $providerIndex => $provider) {
