@@ -22,13 +22,16 @@ class AuthenticationTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_login_screen_shows_last_five_created_users()
+    public function test_local_login_screen_shows_recent_users()
     {
+        $this->app->detectEnvironment(fn () => 'local');
         $oldest = User::factory()->create([
             'name' => 'Oldest User',
             'email' => 'oldest@example.com',
             'created_at' => now()->subMinutes(6),
         ]);
+
+        config(['devpulse.demo_user_password' => 'configured-demo-password']);
 
         $users = collect(range(1, 5))
             ->map(fn (int $index) => User::factory()->create([
@@ -41,23 +44,19 @@ class AuthenticationTest extends TestCase
 
         $response->assertInertia(fn (Assert $page) => $page
             ->component('auth/login')
-            ->has('recentLoginUsers', 5)
+            ->has('recentLoginUsers', 6)
             ->where('recentLoginUsers.0.email', $users->last()->email)
             ->where('recentLoginUsers.4.email', $users->first()->email)
-            ->missing('recentLoginUsers.5')
-        );
-
-        $this->assertNotContains(
-            $oldest->email,
-            collect($response->viewData('page')['props']['recentLoginUsers'])->pluck('email'),
+            ->where('recentLoginUsers.5.email', $oldest->email)
         );
     }
 
-    public function test_non_local_login_screen_shows_last_five_created_users()
+    public function test_non_local_login_screen_does_not_expose_users_or_demo_password()
     {
         $this->app->detectEnvironment(fn () => 'production');
+        config(['devpulse.demo_user_password' => 'configured-demo-password']);
 
-        $users = collect(range(1, 5))
+        collect(range(1, 5))
             ->map(fn (int $index) => User::factory()->create([
                 'email' => "production-user{$index}@example.com",
                 'created_at' => now()->subMinutes(5 - $index),
@@ -67,14 +66,16 @@ class AuthenticationTest extends TestCase
 
         $response->assertInertia(fn (Assert $page) => $page
             ->component('auth/login')
-            ->has('recentLoginUsers', 5)
-            ->where('recentLoginUsers.0.email', $users->last()->email)
+            ->where('developmentLogin', false)
+            ->where('recentLoginUsers', [])
+            ->where('developmentPassword', null)
         );
     }
 
     public function test_local_login_screen_includes_roles_for_development_users()
     {
         $this->app->detectEnvironment(fn () => 'local');
+        config(['devpulse.demo_user_password' => 'configured-demo-password']);
         $organization = Organization::factory()->create();
         $workspace = Workspace::factory()->for($organization)->create();
         $manager = User::factory()->create([
@@ -87,6 +88,7 @@ class AuthenticationTest extends TestCase
         $this->get(route('login'))->assertInertia(fn (Assert $page) => $page
             ->component('auth/login')
             ->where('developmentLogin', true)
+            ->where('developmentPassword', 'configured-demo-password')
             ->where('recentLoginUsers.0.email', $manager->email)
             ->where('recentLoginUsers.0.role', 'manager'));
     }
