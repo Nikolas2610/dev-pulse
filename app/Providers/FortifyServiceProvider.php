@@ -54,6 +54,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'developmentLogin' => app()->environment('local'),
+            'developmentPassword' => app()->environment('local') ? config('devpulse.demo_user_password') : null,
             'recentLoginUsers' => $this->recentLoginUsers(),
             'status' => $request->session()->get('status'),
         ]));
@@ -88,11 +89,15 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function recentLoginUsers(): array
     {
+        if (! app()->environment('local')) {
+            return [];
+        }
+
         return User::query()
             ->with(['organizations:id', 'workspaces:id'])
             ->latest('created_at')
             ->latest('id')
-            ->limit(app()->environment('local') ? 50 : 5)
+            ->limit(50)
             ->get(['id', 'name', 'email', 'current_organization_id', 'current_workspace_id'])
             ->map(function (User $user) {
                 $organizationRole = $user->organizations
