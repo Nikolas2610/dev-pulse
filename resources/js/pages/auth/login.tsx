@@ -25,6 +25,7 @@ type Props = {
     status?: string;
     canResetPassword: boolean;
     developmentLogin: boolean;
+    developmentPassword: string | null;
     recentLoginUsers: RecentLoginUser[];
 };
 
@@ -35,12 +36,11 @@ type RecentLoginUser = {
     role: 'owner' | 'admin' | 'manager' | 'member';
 };
 
-const defaultDevelopmentPassword = 'Password-0';
-
 export default function Login({
     status,
     canResetPassword,
     developmentLogin,
+    developmentPassword,
     recentLoginUsers,
 }: Props) {
     const emailInput = useRef<HTMLInputElement>(null);
@@ -60,7 +60,7 @@ export default function Login({
         }
 
         if (passwordInput.current) {
-            passwordInput.current.value = defaultDevelopmentPassword;
+            passwordInput.current.value = developmentPassword ?? '';
         }
 
         passwordInput.current?.focus();
@@ -142,13 +142,11 @@ export default function Login({
                             </Button>
                         </div>
 
-                        {recentLoginUsers.length > 0 && (
+                        {developmentLogin && recentLoginUsers.length > 0 && (
                             <div className="grid gap-2 rounded-md border border-dashed p-3">
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="text-xs font-medium text-muted-foreground uppercase">
-                                        {developmentLogin
-                                            ? 'Development users'
-                                            : 'Last 5 created users'}
+                                        Development users
                                     </div>
                                     {developmentLogin && (
                                         <Select

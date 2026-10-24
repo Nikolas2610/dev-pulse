@@ -20,6 +20,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $password = config('devpulse.demo_user_password');
+
+        if (! is_string($password) || trim($password) === '') {
+            throw new \RuntimeException('Set DEMO_USER_PASSWORD before seeding demo users.');
+        }
+
         $organization = Organization::firstOrCreate(
             ['slug' => 'internal-company'],
             [
@@ -44,12 +50,12 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Owen Patel', 'email' => 'owen@example.com', 'organization_role' => 'member', 'workspace_role' => 'member'],
             ['name' => 'Sofia Garcia', 'email' => 'sofia@example.com', 'organization_role' => 'member', 'workspace_role' => 'member'],
             ['name' => 'Leo Martin', 'email' => 'leo@example.com', 'organization_role' => 'member', 'workspace_role' => 'member'],
-        ])->map(function (array $seedUser) use ($organization, $workspace) {
+        ])->map(function (array $seedUser) use ($organization, $workspace, $password) {
             $user = User::firstOrCreate(
                 ['email' => $seedUser['email']],
                 [
                     'name' => $seedUser['name'],
-                    'password' => 'password',
+                    'password' => $password,
                     'current_organization_id' => $organization->id,
                     'current_workspace_id' => $workspace->id,
                     'timezone' => 'Asia/Nicosia',
