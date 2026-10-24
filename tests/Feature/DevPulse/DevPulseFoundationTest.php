@@ -30,7 +30,12 @@ class DevPulseFoundationTest extends TestCase
 
     public function test_database_seed_creates_internal_organization_workspace_template_and_schedule(): void
     {
+        config(['devpulse.demo_user_password' => 'configured-demo-password']);
         $this->seed();
+
+        foreach (['test@example.com', 'reports-demo-01@example.com'] as $email) {
+            $this->assertTrue(Hash::check('configured-demo-password', User::where('email', $email)->firstOrFail()->password));
+        }
 
         $organization = Organization::where('slug', 'internal-company')->firstOrFail();
         $workspace = Workspace::where('slug', 'engineering')->firstOrFail();
@@ -47,6 +52,21 @@ class DevPulseFoundationTest extends TestCase
             'time_of_day' => '08:30:00',
             'is_active' => true,
         ]);
+    }
+
+    public function test_demo_seeding_requires_an_explicit_password_before_creating_data(): void
+    {
+        config(['devpulse.demo_user_password' => null]);
+
+        try {
+            $this->seed();
+            $this->fail('Demo seeding should require a configured password.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('DEMO_USER_PASSWORD', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('organizations', 0);
     }
 
     public function test_admin_can_create_template_with_questions_scoped_to_current_organization(): void

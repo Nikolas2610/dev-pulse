@@ -19,6 +19,12 @@ class ReportsDemoSeeder extends Seeder
 
     public function run(): void
     {
+        $password = config('devpulse.demo_user_password');
+
+        if (! is_string($password) || trim($password) === '') {
+            throw new \RuntimeException('Set DEMO_USER_PASSWORD before seeding demo users.');
+        }
+
         mt_srand(20260711);
         $organization = Organization::where('slug', 'internal-company')->firstOrFail();
         $workspace = Workspace::whereBelongsTo($organization)->where('slug', 'engineering')->firstOrFail();
@@ -27,12 +33,12 @@ class ReportsDemoSeeder extends Seeder
         $questions = $template->questions()->get()->keyBy('question_key');
 
         $people = ['Aisha Rahman', 'Ben Carter', 'Camila Torres', 'Dario Novak', 'Elena Rossi', 'Felix Wong', 'Grace Kim', 'Hugo Silva', 'Iris Jensen', 'Jon Bell', 'Kira Ahmed', 'Luca Moretti', 'Mina Park', 'Noah Williams', 'Priya Shah', 'Quinn Taylor', 'Rosa Alvarez', 'Sam Okafor'];
-        $users = collect($people)->map(function (string $name, int $index) use ($organization, $workspace) {
+        $users = collect($people)->map(function (string $name, int $index) use ($organization, $workspace, $password) {
             $workspaceRole = in_array($index, self::MANAGER_INDEXES, true)
                 ? 'manager'
                 : 'member';
             $user = User::updateOrCreate(['email' => sprintf('reports-demo-%02d@example.com', $index + 1)], [
-                'name' => $name, 'password' => 'password', 'email_verified_at' => now(), 'current_organization_id' => $organization->id,
+                'name' => $name, 'password' => $password, 'email_verified_at' => now(), 'current_organization_id' => $organization->id,
                 'current_workspace_id' => $workspace->id, 'timezone' => $workspace->timezone, 'is_active' => true, 'onboarding_required' => false,
             ]);
             $organization->users()->syncWithoutDetaching([$user->id => ['role' => 'member']]);
